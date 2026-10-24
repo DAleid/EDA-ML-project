@@ -1,7 +1,9 @@
 """
-Impact of AI on Students - Interactive Dashboard
+AI Dependency and Academic Vulnerability - Interactive Dashboard
+Survey of Bangladeshi university students (Mendeley Data, DOI 10.17632/6s6nvmpgbb.1)
+
 Run with:  streamlit run app.py
-Input   :  clean_data.csv (produced by the EDA notebook, same folder as this file)
+Input   :  clean_data.csv (created by the EDA notebook; keep it in the same folder as this file)
 """
 from pathlib import Path
 
@@ -10,41 +12,39 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 
-st.set_page_config(page_title="AI Impact on Students", page_icon="🎓", layout="wide")
+st.set_page_config(page_title="AI Dependency in Higher Education", page_icon="🎓", layout="wide")
 
 DATA_FILE = Path(__file__).parent / "clean_data.csv"
 
 ORDERS = {
-    "year_of_study": ["Freshman", "Sophomore", "Junior", "Senior", "Graduate"],
-    "prompt_engineering_skill": ["Beginner", "Intermediate", "Advanced"],
-    "burnout_risk_level": ["Low", "Medium", "High"],
-    "ai_usage_group": ["0-2h", "2-5h", "5-10h", "10-20h", "20-40h"],
+    "age_group": ["Under 20", "20-23", "24-26", "Above 26"],
+    "cgpa_band": ["Below 2.50", "2.51-3.00", "3.01-3.50", "Above 3.50"],
+    "daily_ai_use": ["Less than 1 hour", "1-3 hours", "More than 3 hours"],
+    "reliance_level": ["Low", "Moderate", "High"],
 }
-LABELS = {
-    "gpa_change": "GPA change (post - pre)",
-    "skill_retention_score": "Skill retention score",
-    "anxiety_level_during_exams": "Exam anxiety (1-10)",
-    "burnout_score": "Burnout score (0=Low, 2=High)",
-    "weekly_genai_hours": "Weekly GenAI hours",
-    "traditional_study_hours": "Traditional study hours",
-    "perceived_ai_dependency": "Perceived AI dependency (1-10)",
-    "pre_semester_gpa": "Pre-semester GPA",
-    "post_semester_gpa": "Post-semester GPA",
-    "tool_diversity": "Number of AI tools",
-    "ai_share": "AI share of study time",
-    "total_study_hours": "Total study hours",
+ITEM_LABELS = {
+    "verify_ai_info": "I verify AI information before using it",
+    "study_without_ai": "I can study effectively without AI",
+    "ask_ai_first": "My first instinct is to ask AI",
+    "harder_to_recall": "Harder to recall AI-generated info",
+    "speed_over_understanding": "I prioritise speed over understanding",
+    "use_unmodified": "I use AI answers without modification",
+    "less_confident_without_ai": "Less confident without AI",
+    "critical_thinking_weakened": "Critical thinking has weakened",
+    "submit_without_understanding": "I submit work I don't fully understand",
 }
-OUTCOMES = ["gpa_change", "skill_retention_score", "anxiety_level_during_exams", "burnout_score"]
-GROUPINGS = ["major_category", "year_of_study", "primary_use_case", "prompt_engineering_skill",
-             "institutional_policy", "paid_subscription", "ai_usage_group"]
-NUMERIC = ["pre_semester_gpa", "post_semester_gpa", "gpa_change", "weekly_genai_hours", "traditional_study_hours",
-           "tool_diversity", "perceived_ai_dependency", "anxiety_level_during_exams", "skill_retention_score",
-           "burnout_score", "ai_share", "total_study_hours"]
-BURNOUT_COLORS = {"Low": "#55A868", "Medium": "#F2A541", "High": "#C44E52"}
-
-
-def label(c):
-    return LABELS.get(c, c.replace("_", " ").capitalize())
+ITEMS = list(ITEM_LABELS)
+LIKERT_LABELS = ["Strongly Disagree", "Disagree", "Neutral", "Agree", "Strongly Agree"]
+LIKERT_COLORS = ["#B2182B", "#EF8A62", "#D9D9D9", "#67A9CF", "#2166AC"]
+MEASURES = {
+    "reliance_score": "Reliance on AI score (1-5)",
+    "cognitive_concern_score": "Cognitive concern score (1-5)",
+    "verify_ai_info": "Verifies AI information (1-5)",
+    "daily_ai_use_ord": "Daily AI use (1=<1h, 2=1-3h, 3=>3h)",
+    "cgpa_ord": "CGPA band (1=<2.50 ... 4=>3.50)",
+}
+GROUPINGS = {"daily_ai_use": "Daily AI use", "academic_level": "Academic level", "age_group": "Age group",
+             "gender": "Gender", "university_group": "University", "cgpa_band": "CGPA band"}
 
 
 # ------------------------------------------------------------------ data
@@ -54,23 +54,11 @@ def load_data(path: Path) -> pd.DataFrame:
     for col, order in ORDERS.items():
         if col in df.columns:
             df[col] = pd.Categorical(df[col], categories=order, ordered=True)
-    for col in ["major_category", "primary_use_case", "institutional_policy"]:
-        if col in df.columns:
-            df[col] = df[col].astype("category")
-    if "paid_subscription" in df.columns:
-        df["paid_subscription"] = df["paid_subscription"].astype(str).map(
-            {"True": "Paid", "False": "Free", "1": "Paid", "0": "Free"}).astype("category")
-    if "gpa_change" not in df.columns:
-        df["gpa_change"] = df["post_semester_gpa"] - df["pre_semester_gpa"]
-    if "burnout_score" not in df.columns:
-        df["burnout_score"] = df["burnout_risk_level"].cat.codes
-    if "total_study_hours" not in df.columns:
-        df["total_study_hours"] = df["weekly_genai_hours"] + df["traditional_study_hours"]
-    if "ai_share" not in df.columns:
-        df["ai_share"] = (df["weekly_genai_hours"] / df["total_study_hours"].replace(0, np.nan)).fillna(0)
-    if "ai_usage_group" not in df.columns:
-        df["ai_usage_group"] = pd.cut(df["weekly_genai_hours"], bins=[-0.01, 2, 5, 10, 20, 40.01],
-                                      labels=ORDERS["ai_usage_group"])
+    for col in ["gender", "academic_level", "university", "university_group"]:
+        df[col] = df[col].astype("category")
+    df["daily_ai_use_ord"] = df["daily_ai_use"].cat.codes + 1
+    df["cgpa_ord"] = df["cgpa_band"].cat.codes + 1
+    df["high_cgpa"] = df["cgpa_band"] == "Above 3.50"
     return df
 
 
@@ -81,262 +69,260 @@ if not DATA_FILE.exists():
 df = load_data(DATA_FILE)
 
 # ------------------------------------------------------------------ sidebar
-st.sidebar.title("🎓 AI Impact on Students")
+st.sidebar.title("🎓 AI & Students")
 with st.sidebar.expander("📄 Dataset description", expanded=True):
     st.markdown(
         """
-**Impact of AI on Students** (Kaggle, `laveshjadon`)
+**AI Dependency and Academic Vulnerability in Higher Education**
+Survey of Bangladeshi university students (Mendeley Data, DOI 10.17632/6s6nvmpgbb.1).
 
-Student-level records on generative-AI usage, traditional study time, GPA before and after a semester,
-skill retention, exam anxiety and burnout risk, plus the institution's AI policy.
+Students reported their gender, age group, university, academic level, **CGPA band** and **daily AI use**,
+then rated nine statements (1 = strongly disagree, 5 = strongly agree) about how they use AI.
 
-⚠️ *The dataset page does not document how the data was collected and the data looks very clean and balanced.
-Treat it as possibly **simulated**: patterns describe this dataset, not necessarily real students.*
+**Scores built in the analysis**
+- *Reliance*: asking AI first, speed over understanding, unmodified use, submitting work not understood, and *not* being able to study without AI.
+- *Cognitive concern*: harder recall, less confidence, weaker critical thinking.
+
+⚠️ **Read with care:** self-reported answers from volunteers; one university supplies about 3 in 10 responses;
+duplicate responses were removed in cleaning. Results show **associations**, not causes.
         """
     )
 
 st.sidebar.header("Filters")
+use_sel = st.sidebar.selectbox("Daily AI use (dropdown)", ["All"] + ORDERS["daily_ai_use"])
+level_sel = st.sidebar.selectbox("Academic level (dropdown)", ["All"] + sorted(df["academic_level"].unique().tolist()))
+ages = st.sidebar.multiselect("Age group (multiselect)", ORDERS["age_group"], default=ORDERS["age_group"])
+unis = st.sidebar.multiselect("University (multiselect)", sorted(df["university_group"].unique().tolist()),
+                              default=sorted(df["university_group"].unique().tolist()))
+cgpas = st.sidebar.multiselect("CGPA band (multiselect)", ORDERS["cgpa_band"], default=ORDERS["cgpa_band"])
+rel_range = st.sidebar.slider("Reliance score (slider)", 1.0, 5.0, (1.0, 5.0), step=0.2)
+cog_range = st.sidebar.slider("Cognitive concern score (slider)", 1.0, 5.0, (1.0, 5.0), step=0.2)
 
-major = st.sidebar.selectbox("Major (dropdown)", ["All"] + sorted(df["major_category"].dropna().unique().tolist()))
-use_case = st.sidebar.selectbox("Primary AI use case (dropdown)",
-                                ["All"] + sorted(df["primary_use_case"].dropna().unique().tolist()))
-paid = st.sidebar.selectbox("AI subscription (dropdown)", ["All", "Paid", "Free"])
-
-years = st.sidebar.multiselect("Year of study (multiselect)", ORDERS["year_of_study"], default=ORDERS["year_of_study"])
-policies = st.sidebar.multiselect("Institutional policy (multiselect)",
-                                  sorted(df["institutional_policy"].dropna().unique().tolist()),
-                                  default=sorted(df["institutional_policy"].dropna().unique().tolist()))
-skills = st.sidebar.multiselect("Prompt skill (multiselect)", ORDERS["prompt_engineering_skill"],
-                                default=ORDERS["prompt_engineering_skill"])
-
-ai_min, ai_max = float(df["weekly_genai_hours"].min()), float(df["weekly_genai_hours"].max())
-ai_range = st.sidebar.slider("Weekly GenAI hours (slider)", ai_min, ai_max, (ai_min, ai_max), step=0.5)
-tr_min, tr_max = float(df["traditional_study_hours"].min()), float(df["traditional_study_hours"].max())
-tr_range = st.sidebar.slider("Traditional study hours (slider)", tr_min, tr_max, (tr_min, tr_max), step=0.5)
-g_min, g_max = float(df["pre_semester_gpa"].min()), float(df["pre_semester_gpa"].max())
-gpa_range = st.sidebar.slider("Pre-semester GPA (slider)", round(g_min, 2), round(g_max, 2),
-                              (round(g_min, 2), round(g_max, 2)), step=0.05)
-
-mask = (
-    df["year_of_study"].isin(years)
-    & df["institutional_policy"].isin(policies)
-    & df["prompt_engineering_skill"].isin(skills)
-    & df["weekly_genai_hours"].between(*ai_range)
-    & df["traditional_study_hours"].between(*tr_range)
-    & df["pre_semester_gpa"].between(*gpa_range)
-)
-if major != "All":
-    mask &= df["major_category"] == major
-if use_case != "All":
-    mask &= df["primary_use_case"] == use_case
-if paid != "All":
-    mask &= df["paid_subscription"] == paid
+mask = (df["age_group"].isin(ages) & df["university_group"].isin(unis) & df["cgpa_band"].isin(cgpas)
+        & df["reliance_score"].between(*rel_range) & df["cognitive_concern_score"].between(*cog_range))
+if use_sel != "All":
+    mask &= df["daily_ai_use"] == use_sel
+if level_sel != "All":
+    mask &= df["academic_level"] == level_sel
 f = df[mask]
-
-st.sidebar.markdown(f"**{len(f):,}** of {len(df):,} students selected")
+st.sidebar.markdown(f"**{len(f):,}** of {len(df):,} respondents selected")
 
 # ------------------------------------------------------------------ header
-st.title("Data Insights Dashboard: Is AI a tutor or a shortcut?")
-st.caption("Explore how generative-AI use relates to grades, skill retention, anxiety and burnout. "
-           "Relationships shown are **associations**, not proof of cause and effect.")
+st.title("Data Insights Dashboard: AI use, dependence and grades")
+st.caption("How do students who use AI more describe their dependence, study habits and confidence, and does it relate to CGPA? "
+           "Everything here is **self-reported**; relationships are associations, not proof of cause and effect.")
 
 if f.empty:
-    st.warning("No students match the current filters. Widen the filters in the sidebar.")
+    st.warning("No respondents match the current filters. Widen the filters in the sidebar.")
     st.stop()
+if len(f) < 30:
+    st.warning(f"Only {len(f)} respondents selected: treat the results below as very uncertain.")
 
 k1, k2, k3, k4, k5 = st.columns(5)
-k1.metric("Students", f"{len(f):,}")
-k2.metric("Avg weekly AI hours", f"{f['weekly_genai_hours'].mean():.1f}",
-          f"{f['weekly_genai_hours'].mean() - df['weekly_genai_hours'].mean():+.1f} vs all")
-k3.metric("Avg GPA change", f"{f['gpa_change'].mean():+.2f}",
-          f"{f['gpa_change'].mean() - df['gpa_change'].mean():+.2f} vs all")
-k4.metric("Avg skill retention", f"{f['skill_retention_score'].mean():.1f}",
-          f"{f['skill_retention_score'].mean() - df['skill_retention_score'].mean():+.1f} vs all")
-hb, hb_all = (f["burnout_risk_level"] == "High").mean() * 100, (df["burnout_risk_level"] == "High").mean() * 100
-k5.metric("High burnout risk", f"{hb:.0f}%", f"{hb - hb_all:+.0f} pts vs all", delta_color="inverse")
+k1.metric("Respondents", f"{len(f):,}")
+heavy, heavy_all = (f["daily_ai_use"] == "More than 3 hours").mean() * 100, (df["daily_ai_use"] == "More than 3 hours").mean() * 100
+k2.metric("Use AI > 3 h/day", f"{heavy:.0f}%", f"{heavy - heavy_all:+.0f} pts vs all")
+k3.metric("Avg reliance (1-5)", f"{f['reliance_score'].mean():.2f}", f"{f['reliance_score'].mean() - df['reliance_score'].mean():+.2f} vs all",
+          delta_color="inverse")
+hr, hr_all = (f["reliance_level"] == "High").mean() * 100, (df["reliance_level"] == "High").mean() * 100
+k4.metric("High reliance", f"{hr:.0f}%", f"{hr - hr_all:+.0f} pts vs all", delta_color="inverse")
+hc, hc_all = f["high_cgpa"].mean() * 100, df["high_cgpa"].mean() * 100
+k5.metric("CGPA above 3.50", f"{hc:.0f}%", f"{hc - hc_all:+.0f} pts vs all")
 
-tabs = st.tabs(["📋 Data & statistics", "🤖 AI usage vs outcomes", "🧠 Burnout & well-being",
-                "🏛️ Groups & policy", "🔗 Correlations", "🔍 Explorer"])
+tabs = st.tabs(["📋 Data & statistics", "🤖 AI use vs reliance", "🎯 CGPA", "💬 The nine statements",
+                "👥 Groups", "🔗 Correlations", "🔍 Explorer"])
 
 
 def insight(text):
     st.info("💡 **Insight:** " + text)
 
 
-def safe_corr(a, b, method="spearman"):
+def rho(a, b):
     s = f[[a, b]].dropna()
-    if len(s) < 3 or s[a].nunique() < 2 or s[b].nunique() < 2:
+    if len(s) < 5 or s[a].nunique() < 2 or s[b].nunique() < 2:
         return np.nan
-    return s[a].rank().corr(s[b].rank()) if method == "spearman" else s[a].corr(s[b])
+    return s[a].rank().corr(s[b].rank())
+
+
+def strength(r):
+    if np.isnan(r):
+        return "not computable"
+    a = abs(r)
+    return "negligible" if a < .1 else "weak" if a < .3 else "moderate" if a < .5 else "strong"
+
+
+def mean_ci(data, by, col):
+    g = data.groupby(by, observed=True)[col].agg(["mean", "count", "sem"]).reset_index()
+    g["ci"] = g["sem"].fillna(0) * 1.96
+    return g
 
 
 # ---------------------------------------------------------------- tab 1
 with tabs[0]:
     st.subheader("Data preview")
     n_rows = st.slider("Rows to show", 5, 100, 10, key="rows")
-    st.dataframe(f.head(n_rows), width="stretch")
-    st.download_button("⬇️ Download filtered data (CSV)", f.to_csv(index=False).encode("utf-8"),
-                       "filtered_students.csv", "text/csv")
+    st.dataframe(f.drop(columns=["university_group", "daily_ai_use_ord", "cgpa_ord", "high_cgpa"]).head(n_rows), width="stretch")
+    st.download_button("⬇️ Download filtered data (CSV)", f.to_csv(index=False).encode("utf-8"), "filtered_survey.csv", "text/csv")
 
     st.subheader("Summary statistics")
     c1, c2 = st.columns([3, 2])
     with c1:
-        st.dataframe(f[[c for c in NUMERIC if c in f.columns and c != "burnout_score"]].describe().T.round(2),
-                     width="stretch")
+        st.dataframe(f[["reliance_score", "cognitive_concern_score"] + ITEMS].rename(columns=ITEM_LABELS).describe().T.round(2), width="stretch")
     with c2:
-        cat_pick = st.selectbox("Category distribution", ["major_category", "year_of_study", "primary_use_case",
-                                                          "prompt_engineering_skill", "institutional_policy",
-                                                          "burnout_risk_level"], format_func=label)
-        vc = f[cat_pick].value_counts().reindex(
-            ORDERS.get(cat_pick, f[cat_pick].cat.categories.tolist())).reset_index()
-        vc.columns = [cat_pick, "students"]
-        st.plotly_chart(px.bar(vc, x=cat_pick, y="students", color_discrete_sequence=["#4C72B0"],
-                               labels={cat_pick: label(cat_pick)}), width="stretch")
-    insight(f"The current selection contains {len(f):,} students. "
-            f"Average post-semester GPA is {f['post_semester_gpa'].mean():.2f} "
-            f"(pre: {f['pre_semester_gpa'].mean():.2f}), and {f['gpa_improved'].mean() * 100:.0f}% of students improved."
-            if "gpa_improved" in f.columns else
-            f"The current selection contains {len(f):,} students.")
+        cat = st.selectbox("Category distribution", list(GROUPINGS), format_func=GROUPINGS.get, key="dist")
+        order = ORDERS.get(cat, f[cat].value_counts().index.tolist())
+        vc = f[cat].value_counts().reindex(order).fillna(0).reset_index()
+        vc.columns = [cat, "respondents"]
+        st.plotly_chart(px.bar(vc, x=cat, y="respondents", color_discrete_sequence=["#4C72B0"], labels={cat: GROUPINGS[cat]}),
+                        width="stretch")
+    top = f["university"].value_counts()
+    insight(f"{len(f):,} respondents from {f['university'].nunique()} universities; the largest ({top.index[0]}) supplies "
+            f"{top.iloc[0] / len(f) * 100:.0f}% of this selection. Mean reliance score is {f['reliance_score'].mean():.2f} on a 1-5 scale.")
 
 # ---------------------------------------------------------------- tab 2
 with tabs[1]:
-    st.subheader("How do outcomes change with weekly AI hours?")
-    outcome = st.selectbox("Outcome", OUTCOMES[:3], format_func=label, key="out_ai")
+    st.subheader("How do answers change with daily AI use?")
+    measure = st.selectbox("Score", ["reliance_score", "cognitive_concern_score", "verify_ai_info"], format_func=MEASURES.get, key="m_use")
     c1, c2 = st.columns(2)
-    by_group = f.groupby("ai_usage_group", observed=True)[outcome].agg(["mean", "count", "sem"]).reset_index()
     with c1:
-        fig = px.bar(by_group, x="ai_usage_group", y="mean", error_y=by_group["sem"] * 1.96,
-                     color_discrete_sequence=["#C44E52"], hover_data={"count": True},
-                     labels={"ai_usage_group": "Weekly AI hours", "mean": f"Mean {label(outcome)}"})
+        fig = px.box(f, x="daily_ai_use", y=measure, color="daily_ai_use", points="outliers",
+                     category_orders={"daily_ai_use": ORDERS["daily_ai_use"]}, labels={"daily_ai_use": "Daily AI use", measure: MEASURES[measure]})
+        fig.update_layout(showlegend=False)
         st.plotly_chart(fig, width="stretch")
     with c2:
-        smp = f.sample(min(len(f), 4000), random_state=42)
-        fig = px.scatter(smp, x="weekly_genai_hours", y=outcome, opacity=0.35, color="prompt_engineering_skill",
-                         category_orders={"prompt_engineering_skill": ORDERS["prompt_engineering_skill"]},
-                         labels={"weekly_genai_hours": label("weekly_genai_hours"), outcome: label(outcome),
-                                 "prompt_engineering_skill": "Prompt skill"})
+        g = mean_ci(f, "daily_ai_use", measure)
+        fig = px.bar(g, x="daily_ai_use", y="mean", error_y="ci", hover_data={"count": True}, color_discrete_sequence=["#C44E52"],
+                     category_orders={"daily_ai_use": ORDERS["daily_ai_use"]}, labels={"daily_ai_use": "Daily AI use", "mean": f"Mean {MEASURES[measure]}"})
         st.plotly_chart(fig, width="stretch")
-    if len(by_group) >= 2:
-        lo, hi = by_group.iloc[0], by_group.iloc[-1]
-        rho = safe_corr("weekly_genai_hours", outcome)
-        insight(f"Mean {label(outcome).lower()} is {lo['mean']:.2f} in the '{lo['ai_usage_group']}' group and "
-                f"{hi['mean']:.2f} in the '{hi['ai_usage_group']}' group. Spearman correlation with AI hours: "
-                f"{rho:+.2f}. (Association only: students who struggle may also use AI more.)")
+    lv = (pd.crosstab(f["daily_ai_use"], f["reliance_level"], normalize="index") * 100).reset_index().melt(
+        id_vars="daily_ai_use", var_name="reliance_level", value_name="percent")
+    fig = px.bar(lv, x="daily_ai_use", y="percent", color="reliance_level", barmode="stack",
+                 color_discrete_map={"Low": "#67A9CF", "Moderate": "#F2C14E", "High": "#C44E52"},
+                 category_orders={"daily_ai_use": ORDERS["daily_ai_use"], "reliance_level": ORDERS["reliance_level"]},
+                 labels={"daily_ai_use": "Daily AI use", "percent": "% of students"}, title="Reliance level by daily AI use")
+    st.plotly_chart(fig, width="stretch")
+    r = rho("daily_ai_use_ord", measure)
+    g = mean_ci(f, "daily_ai_use", measure)
+    insight(f"Spearman correlation between daily AI use and {MEASURES[measure].lower()}: {r:+.2f} ({strength(r)}). Group means: " +
+            ", ".join(f"{k}: {v:.2f}" for k, v in zip(g["daily_ai_use"], g["mean"])) + ".")
 
 # ---------------------------------------------------------------- tab 3
 with tabs[2]:
-    st.subheader("Burnout risk and well-being")
+    st.subheader("Is AI use or reliance related to CGPA?")
     c1, c2 = st.columns(2)
     with c1:
-        ct = (pd.crosstab(f["ai_usage_group"], f["burnout_risk_level"], normalize="index") * 100).reset_index()
-        ct = ct.melt(id_vars="ai_usage_group", var_name="burnout_risk_level", value_name="percent")
-        fig = px.bar(ct, x="ai_usage_group", y="percent", color="burnout_risk_level", color_discrete_map=BURNOUT_COLORS,
-                     category_orders={"burnout_risk_level": ORDERS["burnout_risk_level"],
-                                      "ai_usage_group": ORDERS["ai_usage_group"]},
-                     labels={"ai_usage_group": "Weekly AI hours", "percent": "% of students",
-                             "burnout_risk_level": "Burnout"}, title="Burnout mix by AI usage")
+        ct = (pd.crosstab(f["daily_ai_use"], f["cgpa_band"], normalize="index") * 100).reset_index().melt(
+            id_vars="daily_ai_use", var_name="cgpa_band", value_name="percent")
+        fig = px.bar(ct, x="percent", y="daily_ai_use", color="cgpa_band", orientation="h", barmode="stack", text=ct["percent"].round(0).astype(int).astype(str) + "%",
+                     category_orders={"daily_ai_use": ORDERS["daily_ai_use"], "cgpa_band": ORDERS["cgpa_band"]},
+                     color_discrete_sequence=px.colors.sequential.YlGnBu, labels={"daily_ai_use": "Daily AI use", "percent": "% of students"},
+                     title="CGPA band by daily AI use")
         st.plotly_chart(fig, width="stretch")
     with c2:
-        hm = (pd.crosstab(f["perceived_ai_dependency"], f["burnout_risk_level"], normalize="index") * 100)
-        fig = px.imshow(hm.round(0), text_auto=True, aspect="auto", color_continuous_scale="Reds",
-                        labels={"x": "Burnout", "y": "Perceived AI dependency", "color": "%"},
-                        title="Burnout level (%) by perceived AI dependency")
+        g = f.groupby("cgpa_band", observed=True)[["reliance_score", "cognitive_concern_score", "verify_ai_info"]].mean().reset_index().melt(
+            id_vars="cgpa_band", var_name="score", value_name="mean")
+        g["score"] = g["score"].map(MEASURES)
+        fig = px.bar(g, x="cgpa_band", y="mean", color="score", barmode="group", category_orders={"cgpa_band": ORDERS["cgpa_band"]},
+                     labels={"cgpa_band": "CGPA band", "mean": "Mean score (1-5)"}, title="Mean scores by CGPA band")
         st.plotly_chart(fig, width="stretch")
-    c3, c4 = st.columns(2)
-    with c3:
-        fig = px.box(f, x="burnout_risk_level", y="anxiety_level_during_exams", color="burnout_risk_level",
-                     color_discrete_map=BURNOUT_COLORS, category_orders={"burnout_risk_level": ORDERS["burnout_risk_level"]},
-                     title="Exam anxiety by burnout level", labels={"anxiety_level_during_exams": "Exam anxiety"})
-        st.plotly_chart(fig, width="stretch")
-    with c4:
-        fig = px.box(f, x="burnout_risk_level", y="weekly_genai_hours", color="burnout_risk_level",
-                     color_discrete_map=BURNOUT_COLORS, category_orders={"burnout_risk_level": ORDERS["burnout_risk_level"]},
-                     title="Weekly AI hours by burnout level", labels={"weekly_genai_hours": "Weekly AI hours"})
-        st.plotly_chart(fig, width="stretch")
-    hi_share = (f["burnout_risk_level"] == "High").groupby(f["ai_usage_group"], observed=True).mean() * 100
-    if len(hi_share) >= 2:
-        insight("Share of high burnout risk by AI usage: " +
-                ", ".join(f"{k}: {v:.0f}%" for k, v in hi_share.items()) +
-                f". Correlation between AI dependency and anxiety: {safe_corr('perceived_ai_dependency', 'anxiety_level_during_exams'):+.2f}.")
+    counts = f["cgpa_band"].value_counts().reindex(ORDERS["cgpa_band"]).fillna(0).astype(int)
+    r1, r2 = rho("daily_ai_use_ord", "cgpa_ord"), rho("reliance_score", "cgpa_ord")
+    share = f.groupby("daily_ai_use", observed=True)["high_cgpa"].mean() * 100
+    insight(f"Correlation of daily AI use with CGPA band: {r1:+.2f} ({strength(r1)}); of reliance with CGPA band: {r2:+.2f} ({strength(r2)}). "
+            f"Share with CGPA above 3.50: " + ", ".join(f"{k}: {v:.0f}%" for k, v in share.items()) + ". "
+            f"Note: CGPA is a self-reported band with few respondents in the lowest band (n = {counts.iloc[0]}).")
 
 # ---------------------------------------------------------------- tab 4
 with tabs[3]:
-    st.subheader("Compare groups")
-    c1, c2 = st.columns(2)
-    grp = c1.selectbox("Group by", GROUPINGS, format_func=label, key="grp")
-    out2 = c2.selectbox("Outcome", OUTCOMES[:3], format_func=label, key="out_grp")
-    g = f.groupby(grp, observed=True)[out2].agg(["mean", "count", "sem"]).reset_index()
-    fig = px.bar(g, x=grp, y="mean", error_y=g["sem"] * 1.96, color_discrete_sequence=["#4C72B0"],
-                 hover_data={"count": True}, labels={grp: label(grp), "mean": f"Mean {label(out2)}"})
+    st.subheader("Responses to the nine statements")
+    rows = []
+    for c in ITEMS:
+        p = f[c].value_counts(normalize=True).reindex(range(1, 6)).fillna(0) * 100
+        for i, lab in enumerate(LIKERT_LABELS, 1):
+            rows.append((ITEM_LABELS[c], lab, p.loc[i]))
+    lk = pd.DataFrame(rows, columns=["statement", "response", "percent"])
+    order = lk[lk["response"].isin(["Agree", "Strongly Agree"])].groupby("statement")["percent"].sum().sort_values().index.tolist()
+    fig = px.bar(lk, x="percent", y="statement", color="response", orientation="h", barmode="stack",
+                 category_orders={"response": LIKERT_LABELS, "statement": order}, color_discrete_sequence=LIKERT_COLORS,
+                 labels={"percent": "% of respondents", "statement": ""})
+    fig.update_layout(height=480, legend_orientation="h", legend_y=-0.2)
     st.plotly_chart(fig, width="stretch")
-
-    st.markdown("**Two-way view:** mean outcome by AI usage and another variable")
-    other = st.selectbox("Second variable", [x for x in GROUPINGS if x != "ai_usage_group"], format_func=label, key="oth")
-    pv = f.pivot_table(index="ai_usage_group", columns=other, values=out2, aggfunc="mean", observed=True)
-    fig = px.imshow(pv.round(2), text_auto=True, aspect="auto", color_continuous_scale="RdYlGn",
-                    labels={"color": label(out2), "y": "Weekly AI hours", "x": label(other)})
+    st.markdown("**Mean agreement (1-5) by daily AI use**")
+    hm = f.groupby("daily_ai_use", observed=True)[ITEMS].mean().T
+    hm.index = [ITEM_LABELS[i] for i in hm.index]
+    fig = px.imshow(hm.round(2), text_auto=True, aspect="auto", color_continuous_scale="RdBu_r", zmin=1, zmax=5, labels={"color": "mean"})
     st.plotly_chart(fig, width="stretch")
-    if len(g) >= 2:
-        best, worst = g.loc[g["mean"].idxmax()], g.loc[g["mean"].idxmin()]
-        insight(f"For {label(out2).lower()}, '{best[grp]}' scores highest ({best['mean']:.2f}) and "
-                f"'{worst[grp]}' lowest ({worst['mean']:.2f}), a gap of {best['mean'] - worst['mean']:.2f}. "
-                f"Check the error bars: small gaps may not be meaningful.")
+    agree = {ITEM_LABELS[c]: (f[c] >= 4).mean() * 100 for c in ITEMS}
+    top_item = max(agree, key=agree.get)
+    low_item = min(agree, key=agree.get)
+    insight(f"Highest agreement: '{top_item}' ({agree[top_item]:.0f}% agree or strongly agree). Lowest: '{low_item}' ({agree[low_item]:.0f}%). "
+            f"Items are phrased from the student's own perspective, so they measure perceptions, not tested skills.")
 
 # ---------------------------------------------------------------- tab 5
 with tabs[4]:
-    st.subheader("Correlation heatmap")
-    method = st.radio("Method", ["spearman", "pearson"], horizontal=True)
-    cols = [c for c in NUMERIC if c in f.columns]
-    cm = f[cols].rank().corr() if method == "spearman" else f[cols].corr()
-    fig = px.imshow(cm.round(2), text_auto=True, zmin=-1, zmax=1, color_continuous_scale="RdBu_r", aspect="auto",
-                    labels={"color": "r"})
-    fig.update_layout(height=650)
+    st.subheader("Compare groups")
+    c1, c2 = st.columns(2)
+    grp = c1.selectbox("Group by", list(GROUPINGS), format_func=GROUPINGS.get, key="grp")
+    meas = c2.selectbox("Measure", list(MEASURES), format_func=MEASURES.get, key="meas")
+    g = mean_ci(f, grp, meas)
+    fig = px.bar(g, x=grp, y="mean", error_y="ci", hover_data={"count": True}, color_discrete_sequence=["#4C72B0"],
+                 category_orders={grp: ORDERS.get(grp, sorted(f[grp].astype(str).unique()))}, labels={grp: GROUPINGS[grp], "mean": MEASURES[meas]})
     st.plotly_chart(fig, width="stretch")
-    pairs = cm.where(np.triu(np.ones(cm.shape, dtype=bool), 1)).stack().reset_index()
-    pairs.columns = ["var_1", "var_2", "r"]
-    # skip trivially related pairs built from the same variables
-    trivial = {frozenset(p) for p in [("pre_semester_gpa", "gpa_change"), ("post_semester_gpa", "gpa_change"),
-               ("weekly_genai_hours", "ai_share"), ("weekly_genai_hours", "total_study_hours"),
-               ("traditional_study_hours", "total_study_hours"), ("traditional_study_hours", "ai_share"),
-               ("ai_share", "total_study_hours"), ("pre_semester_gpa", "post_semester_gpa")]}
-    pairs = pairs[~pairs.apply(lambda r: frozenset((r.var_1, r.var_2)) in trivial, axis=1)]
-    top = pairs.reindex(pairs["r"].abs().sort_values(ascending=False).index).head(3)
-    insight("Strongest non-trivial relationships: " +
-            "; ".join(f"{label(a)} and {label(b)} ({r:+.2f})" for a, b, r in top.itertuples(index=False)) +
-            ". Correlation does not imply causation.")
+    st.dataframe(g.rename(columns={"mean": "mean", "count": "n", "ci": "95% CI (±)"}).drop(columns="sem").round(2), width="stretch")
+    big = g[g["count"] >= 10]
+    if len(big) >= 2:
+        hi, lo = big.loc[big["mean"].idxmax()], big.loc[big["mean"].idxmin()]
+        insight(f"Among groups with at least 10 respondents, '{hi[grp]}' has the highest mean ({hi['mean']:.2f}) and '{lo[grp]}' the lowest "
+                f"({lo['mean']:.2f}). If the error bars overlap, the difference may not be meaningful. Groups with few respondents are unreliable.")
 
 # ---------------------------------------------------------------- tab 6
 with tabs[5]:
+    st.subheader("Spearman correlations")
+    cols = ITEMS + ["daily_ai_use_ord", "cgpa_ord"]
+    cm = f[cols].rank().corr()
+    names = {**ITEM_LABELS, "daily_ai_use_ord": "Daily AI use (1-3)", "cgpa_ord": "CGPA band (1-4)"}
+    cm.index = cm.columns = [names[c] for c in cols]
+    fig = px.imshow(cm.round(2), text_auto=True, zmin=-1, zmax=1, color_continuous_scale="RdBu_r", aspect="auto", labels={"color": "rho"})
+    fig.update_layout(height=680)
+    st.plotly_chart(fig, width="stretch")
+    cg = cm["CGPA band (1-4)"].drop("CGPA band (1-4)")
+    strongest = cg.abs().idxmax()
+    insight(f"The nine statements are strongly linked to each other and to daily AI use, but the largest correlation with CGPA band is only "
+            f"{cg[strongest]:+.2f} ('{strongest}'). Correlation does not imply causation.")
+
+# ---------------------------------------------------------------- tab 7
+with tabs[6]:
     st.subheader("Build your own chart")
-    num_cols = [c for c in NUMERIC if c in f.columns]
-    cat_cols = ["(none)"] + GROUPINGS + ["burnout_risk_level"]
     c1, c2, c3, c4 = st.columns(4)
-    kind = c1.selectbox("Chart type", ["Scatter", "Histogram", "Box"])
-    x = c2.selectbox("X", num_cols, index=num_cols.index("weekly_genai_hours"), format_func=label)
-    y = c3.selectbox("Y (scatter/box)", num_cols, index=num_cols.index("skill_retention_score"), format_func=label)
-    color = c4.selectbox("Color by", cat_cols, format_func=lambda c: label(c) if c != "(none)" else c)
+    kind = c1.selectbox("Chart type", ["Box", "Bar (mean)", "Histogram", "Heatmap (% of row)"])
+    x = c2.selectbox("Group (X)", list(GROUPINGS), format_func=GROUPINGS.get, key="ex_x")
+    y = c3.selectbox("Score (Y)", list(MEASURES), format_func=MEASURES.get, key="ex_y")
+    color = c4.selectbox("Color by", ["(none)"] + list(GROUPINGS), format_func=lambda c: GROUPINGS.get(c, c), key="ex_c")
     col = None if color == "(none)" else color
-    if kind == "Scatter":
-        fig = px.scatter(f.sample(min(len(f), 4000), random_state=1), x=x, y=y, color=col, opacity=0.4,
-                         labels={x: label(x), y: label(y)})
+    if kind == "Box":
+        fig = px.box(f, x=x, y=y, color=col, category_orders={x: ORDERS.get(x, sorted(f[x].astype(str).unique()))})
+    elif kind == "Bar (mean)":
+        g = f.groupby([x] + ([col] if col and col != x else []), observed=True)[y].mean().reset_index()
+        fig = px.bar(g, x=x, y=y, color=col if col and col != x else None, barmode="group", category_orders={x: ORDERS.get(x, sorted(f[x].astype(str).unique()))})
     elif kind == "Histogram":
-        fig = px.histogram(f, x=x, color=col, nbins=40, barmode="overlay", opacity=0.7, labels={x: label(x)})
+        fig = px.histogram(f, x=y, color=col, nbins=20, barmode="overlay", opacity=0.7)
     else:
-        fig = px.box(f, x=col, y=y, color=col, labels={y: label(y)}) if col else px.box(f, y=y, labels={y: label(y)})
+        other = col if col and col != x else ("cgpa_band" if x != "cgpa_band" else "daily_ai_use")
+        ct = pd.crosstab(f[x], f[other], normalize="index") * 100
+        fig = px.imshow(ct.round(0), text_auto=True, aspect="auto", color_continuous_scale="Blues", labels={"color": "% of row", "x": GROUPINGS[other], "y": GROUPINGS[x]})
     st.plotly_chart(fig, width="stretch")
 
 # ------------------------------------------------------------------ overall insights
 st.divider()
 st.subheader("Key insights (update with your filters)")
-r1 = safe_corr("weekly_genai_hours", "skill_retention_score")
-r2 = safe_corr("weekly_genai_hours", "gpa_change")
-r3 = safe_corr("perceived_ai_dependency", "burnout_score")
+a, b, c_, d = rho("daily_ai_use_ord", "reliance_score"), rho("daily_ai_use_ord", "verify_ai_info"), rho("daily_ai_use_ord", "cognitive_concern_score"), rho("daily_ai_use_ord", "cgpa_ord")
 st.markdown(
     f"""
-- **Skill retention:** Spearman correlation with weekly AI hours is **{r1:+.2f}**.
-- **GPA change:** correlation with weekly AI hours is **{r2:+.2f}**.
-- **Burnout:** correlation between perceived AI dependency and burnout level is **{r3:+.2f}**.
-- **Caution:** these are associations in observational (and possibly simulated) data. They do not show that AI *causes* these outcomes.
+- **Daily AI use and reliance:** Spearman rho = **{a:+.2f}** ({strength(a)}).
+- **Daily AI use and verifying AI output:** rho = **{b:+.2f}** ({strength(b)}).
+- **Daily AI use and feeling less capable (memory, confidence, critical thinking):** rho = **{c_:+.2f}** ({strength(c_)}).
+- **Daily AI use and CGPA band:** rho = **{d:+.2f}** ({strength(d)}).
+- **Caution:** self-reported survey of volunteers (one university dominates). These are associations, not causes.
 """
 )
-st.caption("Final Project - Unit 3 | Built with Streamlit, pandas and Plotly.")
+st.caption("Final Project - Unit 3 | Built with Streamlit, pandas and Plotly | Data: Mendeley Data, DOI 10.17632/6s6nvmpgbb.1")
