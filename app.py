@@ -81,8 +81,10 @@ font-size:.93rem;line-height:1.6;}
 
 .stTabs [data-baseweb="tab-list"]{gap:4px;border-bottom:1px solid var(--line);}
 .stTabs [data-baseweb="tab"]{color:var(--muted);font-weight:600;padding:10px 16px;}
-.stTabs [aria-selected="true"]{color:var(--cyan)!important;}
-.stTabs [data-baseweb="tab-highlight"]{background-color:var(--cyan)!important;}
+.stTabs [data-baseweb="tab"]:hover,.stTabs [data-baseweb="tab"]:hover *{color:var(--cyan)!important;}
+.stTabs [aria-selected="true"],.stTabs [aria-selected="true"] *{color:var(--cyan)!important;}
+.stTabs [data-baseweb="tab-highlight"],.stTabs [data-baseweb="tab-highlight"] *{background:var(--cyan)!important;background-color:var(--cyan)!important;}
+[data-testid="stSidebar"] [data-baseweb="slider"] div[role="slider"]{background:var(--cyan)!important;}
 .stTabs [data-baseweb="tab-border"]{display:none;}
 [data-testid="stDataFrame"]{border:1px solid var(--line);border-radius:10px;}
 .stDownloadButton button{background:var(--panel2);border:1px solid var(--line);color:var(--text);}
@@ -228,9 +230,9 @@ def stacked(frame, group, cat, order_g, order_c, colors, horizontal=False, heigh
         fig.add_bar(name=str(c), marker_color=colors[c], text=[f"{x:.0f}%" if x >= 6 else "" for x in v], textposition="inside",
                     insidetextanchor="middle", textfont=dict(color=INK if bright else "#fff", size=12),
                     hovertemplate="%{" + ("x" if horizontal else "y") + ":.1f}% " + str(c) + "<extra></extra>", **kw)
-    fig.update_layout(barmode="stack", bargap=.35)
+    fig.update_layout(barmode="stack", bargap=.35, legend=dict(traceorder="normal", y=-0.3 if horizontal else -0.14))
     if horizontal:
-        fig.update_xaxes(range=[0, 100], ticksuffix="%")
+        fig.update_xaxes(range=[0, 100], ticksuffix="%", side="top")
         fig.update_yaxes(autorange="reversed")
     else:
         fig.update_yaxes(range=[0, 100], ticksuffix="%")
@@ -468,16 +470,19 @@ with tabs[3]:
         with panel("cgpamix", "Do heavy AI users report lower CGPA?", "CGPA bands within each daily-use group (100% bars)."):
             show(stacked(f, "daily_ai_use", "cgpa_band", ORDERS["daily_ai_use"], ORDERS["cgpa_band"], dict(zip(ORDERS["cgpa_band"], CGPA_COLORS)), horizontal=True), 330)
     with b:
-        with panel("cgpahigh", "Is the share of top grades different?", "Students with CGPA above 3.50, with 95% confidence ranges. Same scale on both sides."):
+        with panel("cgpahigh", "Is the share of top grades different?", "Students with CGPA above 3.50. Whiskers are 95% confidence ranges: if they overlap, the difference may be chance."):
             fig = make_subplots(rows=1, cols=2, shared_yaxes=True, horizontal_spacing=.06, subplot_titles=("By daily AI use", "By reliance level"))
+            SHORT = {"Less than 1 hour": "Under 1 h", "1-3 hours": "1-3 h", "More than 3 hours": "Over 3 h", "Low": "Low", "Moderate": "Moderate", "High": "High"}
+            ymax = 10
             for i, (col, order, cm) in enumerate([("daily_ai_use", ORDERS["daily_ai_use"], USE_COLORS), ("reliance_level", ORDERS["reliance_level"], LEVEL_COLORS)], 1):
                 st_ = [wilson(int(f.loc[f[col] == o, "high_cgpa"].sum()), int((f[col] == o).sum())) for o in order]
-                p_ = np.array([s[0] for s in st_])
-                fig.add_trace(go.Bar(x=[o.replace(" hour", "h").replace("More than ", ">").replace("Less than ", "<") for o in order], y=p_, marker_color=[cm[o] for o in order],
-                                     text=[fmt(v) for v in p_], textposition="outside", textfont=dict(color=TEXT, size=12), cliponaxis=False,
-                                     error_y=dict(type="data", symmetric=False, array=[s[2] - s[0] for s in st_], arrayminus=[s[0] - s[1] for s in st_], color=MUTED, thickness=1.4, width=5),
+                p_ = np.array([s_[0] for s_ in st_])
+                ymax = max(ymax, np.nanmax([s_[2] for s_ in st_]) + 8)
+                fig.add_trace(go.Bar(x=[SHORT[o] for o in order], y=p_, marker_color=[cm[o] for o in order],
+                                     text=[fmt(v) for v in p_], textposition="inside", insidetextanchor="start", textfont=dict(color=INK, size=14),
+                                     error_y=dict(type="data", symmetric=False, array=[s_[2] - s_[0] for s_ in st_], arrayminus=[s_[0] - s_[1] for s_ in st_], color=TEXT, thickness=1.6, width=6),
                                      hovertemplate="%{x}: %{y:.0f}%<extra></extra>", showlegend=False), row=1, col=i)
-            fig.update_yaxes(range=[0, 100], ticksuffix="%")
+            fig.update_yaxes(range=[0, min(100, ymax)], ticksuffix="%")
             fig.update_layout(bargap=.35)
             fig.update_annotations(font=dict(size=12, color=MUTED))
             show(fig, 330)
@@ -511,8 +516,9 @@ with tabs[4]:
                 s_ = pv.stack()
                 answer(f"Highest cell: <b>{s_.idxmax()[0]}</b> students at the <b>{s_.idxmax()[1]}</b> level (mean {s_.max():.2f}); lowest: {s_.idxmin()[0]} / {s_.idxmin()[1]} ({s_.min():.2f}).")
     with b:
-        with panel("risk", "Which groups have the most students with high reliance?", "Share with a high reliance score (above 3.5). Groups under 10 students are hidden. Coral = above the average of all selected students."):
-            grp = st.selectbox("Compare by", list(GROUPINGS), format_func=GROUPINGS.get, key="risk_grp", label_visibility="collapsed")
+        with panel("risk", "Which groups have the most students with high reliance?", "Share with a high reliance score (above 3.5). Whiskers are 95% confidence ranges. Coral = above the average of all selected students; groups under 10 are hidden."):
+            risk_opts = [k for k in GROUPINGS if k != "daily_ai_use"]
+            grp = st.selectbox("Compare by", risk_opts, index=risk_opts.index("university_group"), format_func=GROUPINGS.get, key="risk_grp", label_visibility="collapsed")
             rows = []
             for name, sub in f.groupby(grp, observed=True):
                 if len(sub) >= 10:
@@ -524,7 +530,7 @@ with tabs[4]:
                 rk = pd.DataFrame(rows, columns=["g", "p", "lo", "hi"]).sort_values("p")
                 avg = f["high_reliance"].mean() * 100
                 fig = go.Figure(go.Bar(x=rk["p"], y=rk["g"], orientation="h", marker_color=[CORAL if v > avg else CYAN for v in rk["p"]], text=[fmt(v) for v in rk["p"]],
-                                       textposition="outside", textfont=dict(color=TEXT, size=12), cliponaxis=False,
+                                       textposition="inside", insidetextanchor="start", textfont=dict(color=INK, size=13),
                                        error_x=dict(type="data", symmetric=False, array=rk["hi"], arrayminus=rk["lo"], color=MUTED, thickness=1.4, width=4),
                                        hovertemplate="%{y}: %{x:.0f}% high reliance<extra></extra>"))
                 fig.add_vline(x=avg, line_dash="dash", line_color=AMBER, annotation_text=f"all: {avg:.0f}%", annotation_font_color=AMBER, annotation_position="top")
