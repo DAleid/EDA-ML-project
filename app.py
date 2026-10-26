@@ -115,10 +115,9 @@ def read_upload(uploaded):
         except Exception as e:
             st.error(f"تعذّر قراءة الملف: {e}")
             st.stop()
-   candidates = [
-    Path("Superstore_Cleaned.csv"),
-    Path("data/Superstore_Cleaned.csv"),
-]
+   candidates =  Path("Superstore_Cleaned.csv"),
+   
+
 
     for path in candidates:
         if path.exists():
