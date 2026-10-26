@@ -115,14 +115,14 @@ def read_upload(uploaded):
         except Exception as e:
             st.error(f"تعذّر قراءة الملف: {e}")
             st.stop()
-   candidates =  Path("Superstore_Cleaned.csv"),
-   
 
-
+    candidates = [Path("Superstore_Cleaned.csv")]
     for path in candidates:
         if path.exists():
-            try: return pd.read_csv(path, encoding_errors="replace")
-            except Exception: pass
+            try:
+                return pd.read_csv(path, encoding_errors="replace")
+            except Exception:
+                pass
     return None
 
 # ---------- Sidebar ----------
