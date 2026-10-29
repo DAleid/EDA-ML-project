@@ -1,12 +1,18 @@
 # Stack Overflow 2025 AI Productivity Dashboard
 
-A Streamlit dashboard for the Stack Overflow Developer Survey 2025. It includes interactive filters, EDA charts, relationships between AI adoption and perceived productivity, and a reproducible Logistic Regression benchmark.
+An interactive Streamlit dashboard that explores developer trends, AI adoption, and the relationship between AI usage and perceived productivity. It includes data visualization, exploratory data analysis (EDA), and a Logistic Regression classification benchmark.
 
-## Run locally
+## Dataset
+
+Uses the Stack Overflow Developer Survey 2025.
+Dataset link: https://www.kaggle.com/datasets/edoardogalli/stack-overflow-annual-developer-survey-2025?select=survey_results_public.csv
+
+
+Productivity insights reflect self-reported perceptions, not objectively measured work output.
+
+## Run Locally
 
 ```bash
 pip install -r requirements.txt
 streamlit run app.py --server.port 3000 --server.address 0.0.0.0
 ```
-
-The app expects `survey_results_public.csv` next to `app.py`. The dashboard labels the outcome as perceived productivity because the survey is self-reported and does not contain measured work-output logs.
