@@ -10,6 +10,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 warnings.filterwarnings("ignore", category=UserWarning)
+warnings.filterwarnings("ignore", category=FutureWarning)
 
 st.set_page_config(
     page_title="InsightLab | Superstore Analytics",
@@ -222,6 +223,30 @@ def delta_html(cur, prev, pp=False):
     return f'<span class="{cls}">{arrow} {txt}</span> vs previous period'
 
 
+@st.cache_data(show_spinner="Fitting forecast model…")
+def run_forecast(series, horizon):
+    """Holt-Winters (additive trend + seasonality) with a simulated 80% range and a 12-month holdout check."""
+    from statsmodels.tsa.holtwinters import ExponentialSmoothing
+
+    def fit(s):
+        return ExponentialSmoothing(s, trend="add", seasonal="add", seasonal_periods=12,
+                                    initialization_method="estimated").fit()
+
+    out = {}
+    if len(series) >= 36:
+        tr, te = series[:-12], series[-12:]
+        hw, sn = fit(tr).forecast(12).values, tr[-12:].values
+        wape = lambda p: float(np.abs(te.values - p).sum() / te.values.sum() * 100)
+        out["backtest"] = dict(test=te, hw=hw, snaive=sn, wape_hw=wape(hw), wape_sn=wape(sn))
+    model = fit(series)
+    idx = pd.date_range(series.index[-1] + pd.offsets.MonthBegin(1), periods=horizon, freq="MS")
+    sims = model.simulate(horizon, repetitions=1000, error="add", random_state=42)
+    out.update(point=pd.Series(model.forecast(horizon).values, index=idx),
+               lower=np.maximum(sims.quantile(0.10, axis=1).values, 0),
+               upper=sims.quantile(0.90, axis=1).values)
+    return out
+
+
 # ---------- Sidebar ----------
 with st.sidebar:
     st.markdown("## ✦ InsightLab")
@@ -380,8 +405,8 @@ for item in insights or ["Upload a dataset with standard Superstore fields to un
 
 # ---------- Charts ----------
 st.markdown('<div class="section-title">Explore the business</div><div class="section-sub">Each chart answers a practical question. Hover for details; use the filters above to investigate a subset.</div>', unsafe_allow_html=True)
-tab_overview, tab_products, tab_customers, tab_operations, tab_data = st.tabs(
-    ["✦ Overview", "▦ Products & Profit", "◎ Customers & Regions", "↗ Operations", "⌘ Data quality"]
+tab_overview, tab_products, tab_customers, tab_operations, tab_forecast, tab_data = st.tabs(
+    ["✦ Overview", "▦ Products & Profit", "◎ Customers & Regions", "↗ Operations", "🔮 Forecast", "⌘ Data quality"]
 )
 
 # ===== Overview =====
@@ -614,6 +639,68 @@ with tab_operations:
         table(db.rename(columns={"Avg_Profit": "Avg profit / line", "Loss_Share": "Loss-making lines %"}).style.format(
             {"Lines": "{:,.0f}", "Sales": "${:,.0f}", "Profit": "${:,.0f}", "Avg profit / line": "${:,.2f}",
              "Loss-making lines %": "{:.1f}%", "Margin %": "{:.1f}%"}))
+
+# ===== Forecast =====
+with tab_forecast:
+    st.markdown("#### Sales forecast")
+    st.caption("Holt-Winters model on monthly sales. It respects the Region / Category / Segment filters but always uses the full date history.")
+    try:
+        import statsmodels  # noqa: F401
+        has_sm = True
+    except ImportError:
+        has_sm = False
+    hist = None
+    if has_sm and "Order Date" in base and base["Order Date"].notna().any():
+        hist = base.dropna(subset=["Order Date"]).set_index("Order Date")["Sales"].resample("MS").sum()
+        hist.index.freq = "MS"
+    if not has_sm:
+        st.info("Install `statsmodels` to enable forecasting:  `pip install statsmodels`")
+    elif hist is None or len(hist) < 30:
+        st.info("Forecasting needs at least ~30 months of order history for the selected Region / Category / Segment.")
+    else:
+        horizon = st.slider("Months to forecast", 3, 12, 12)
+        fc = run_forecast(hist, horizon)
+        point, lo, hi = fc["point"], fc["lower"], fc["upper"]
+        last_same = hist[-horizon:].sum()
+        growth = (point.sum() / last_same - 1) * 100 if last_same else np.nan
+        k1, k2, k3, k4 = st.columns(4)
+        k1.metric(f"Forecast sales · next {horizon} mo", money(point.sum()))
+        k2.metric("vs last same-length period", f"{growth:+.1f}%" if pd.notna(growth) else "—")
+        k3.metric("Expected peak month", f"{point.idxmax():%b %Y}")
+        k4.metric("80% range (total)", f"{money(lo.sum())} – {money(hi.sum())}")
+
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(x=hist.index, y=hist.values, name="History", mode="lines", line=dict(color=TEAL, width=2.5)))
+        fig.add_trace(go.Scatter(x=list(point.index) + list(point.index[::-1]), y=list(hi) + list(lo[::-1]), fill="toself",
+                                 fillcolor="rgba(255,184,107,0.18)", line=dict(width=0), name="80% range", hoverinfo="skip"))
+        fig.add_trace(go.Scatter(x=[hist.index[-1]] + list(point.index), y=[hist.values[-1]] + list(point.values), name="Forecast",
+                                 mode="lines+markers", line=dict(color=ORANGE, width=2.5, dash="dash")))
+        fig.update_layout(title="Monthly sales: history and forecast", legend=dict(orientation="h", y=1.12, x=0))
+        plot(fig, 400)
+
+        out_tbl = pd.DataFrame({"Month": point.index.strftime("%b %Y"), "Forecast": point.values.round(0),
+                                "Low (10%)": lo.round(0), "High (90%)": hi.round(0)})
+        left, right = st.columns([1, 1.4])
+        with left:
+            table(out_tbl.style.format({"Forecast": "${:,.0f}", "Low (10%)": "${:,.0f}", "High (90%)": "${:,.0f}"}))
+            st.download_button("Download forecast as CSV", out_tbl.to_csv(index=False).encode("utf-8-sig"),
+                               file_name="sales_forecast.csv", mime="text/csv")
+        with right:
+            bt = fc.get("backtest")
+            if bt:
+                b1, b2 = st.columns(2)
+                b1.metric("Holdout error · Holt-Winters", f"{bt['wape_hw']:.1f}%")
+                b2.metric("Holdout error · seasonal naive", f"{bt['wape_sn']:.1f}%",
+                          help="Baseline: same month last year. The model should beat it.")
+                fig = go.Figure()
+                fig.add_trace(go.Scatter(x=bt["test"].index, y=bt["test"].values, name="Actual", line=dict(color=TEXT, width=2.5)))
+                fig.add_trace(go.Scatter(x=bt["test"].index, y=bt["hw"], name="Holt-Winters", line=dict(color=ORANGE)))
+                fig.add_trace(go.Scatter(x=bt["test"].index, y=bt["snaive"], name="Seasonal naive", line=dict(color=BLUE, dash="dot")))
+                fig.update_layout(title="How accurate was it on the last 12 months?", legend=dict(orientation="h", y=1.15, x=0))
+                plot(fig, 300)
+        st.caption("Error = weighted absolute % error on the last 12 known months (model trained on earlier data only). "
+                   "Expect roughly 15–25% on this dataset: use the forecast for direction and seasonality, not exact monthly targets. "
+                   "The trend term extrapolates recent growth, so treat the upper range as a best case.")
 
 # ===== Data quality =====
 with tab_data:
