@@ -32,7 +32,7 @@ st.set_page_config(
     page_title="SO 2025 · AI Productivity",
     page_icon="◈",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="collapsed",
 )
 
 st.markdown(
@@ -41,8 +41,6 @@ st.markdown(
     :root { --ink:#172033; --muted:#68758a; --teal:#0f766e; --teal-light:#dff4f0; --line:#e5eaf1; --panel:#ffffff; --bg:#f6f8fb; }
     .stApp { background: var(--bg); color: var(--ink); }
     .block-container { max-width: 1440px; padding: 2rem 3rem 4rem; }
-    [data-testid="stSidebar"] { background:#ffffff; border-right:1px solid var(--line); }
-    [data-testid="stSidebar"] > div:first-child { padding-top: 1.5rem; }
     h1,h2,h3 { color:var(--ink); letter-spacing:-0.02em; }
     h1 { font-size:2.45rem !important; margin-bottom:.25rem; }
     h2 { font-size:1.4rem !important; margin-top:1.5rem; }
@@ -225,44 +223,15 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# Sidebar filters
-with st.sidebar:
-    st.markdown("## Dashboard filters")
-    st.caption("All overview charts update to match these selections. The model benchmark remains fixed on the full eligible survey sample for reproducibility.")
-    employment_options = sorted(df["Employment"].dropna().unique().tolist())
-    selected_employment = st.multiselect("Employment status", employment_options, default=employment_options)
-    country_counts = df["Country_Short"].value_counts()
-    country_options = country_counts.head(25).index.tolist()
-    selected_countries = st.multiselect("Country · top 25 + Missing", country_options, default=[])
-    max_exp = int(np.nanmax(df["WorkExp"])) if df["WorkExp"].notna().any() else 50
-    exp_range = st.slider("Professional experience (years)", 0, max(1, min(max_exp, 50)), (0, max(1, min(max_exp, 50))))
-    ai_options = sorted(df["AISelect"].dropna().unique().tolist())
-    selected_ai = st.multiselect("AI use frequency", ai_options, default=ai_options)
-    agent_options = sorted(df["AIAgents"].dropna().unique().tolist())
-    selected_agents = st.multiselect("AI-agent use", agent_options, default=agent_options)
-    if st.button("Reset filters", use_container_width=True):
-        st.rerun()
-    st.markdown("---")
-    st.markdown("**Data note**")
-    st.caption(f"{len(df):,} survey responses · {df.shape[1]} analysis fields · official 2025 survey format")
-
+# No sidebar or dashboard filters: analyze the complete survey sample.
 filtered = df.copy()
-if selected_employment:
-    filtered = filtered[filtered["Employment"].isin(selected_employment)]
-if selected_countries:
-    filtered = filtered[filtered["Country_Short"].isin(selected_countries)]
-filtered = filtered[filtered["WorkExp"].between(exp_range[0], exp_range[1], inclusive="both") | filtered["WorkExp"].isna()]
-if selected_ai:
-    filtered = filtered[filtered["AISelect"].isin(selected_ai) | filtered["AISelect"].isna()]
-if selected_agents:
-    filtered = filtered[filtered["AIAgents"].isin(selected_agents) | filtered["AIAgents"].isna()]
 
 model, model_metrics, model_report, cm, importance, model_features = train_model(df)
 
 # KPI strip
 eligible = filtered["Perceived_Productivity_Positive"].notna()
 kpis = [
-    ("Visible respondents", f"{len(filtered):,}", "after sidebar filters"),
+    ("Visible respondents", f"{len(filtered):,}", "full survey sample"),
     ("Use AI daily", pct(filtered["Uses_AI_Daily"].mean()), "among visible respondents"),
     ("Use AI agents", pct(filtered["Uses_AI_Agents"].mean()), "among visible respondents"),
     ("Positive perception", pct(filtered.loc[eligible, "Perceived_Productivity_Positive"].mean()), "AI agents increased productivity"),
