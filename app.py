@@ -12,67 +12,106 @@ import streamlit as st
 warnings.filterwarnings("ignore", category=UserWarning)
 warnings.filterwarnings("ignore", category=FutureWarning)
 
-st.set_page_config(
-    page_title="InsightLab | Superstore Analytics",
-    page_icon="✦",
-    layout="wide",
-    initial_sidebar_state="expanded",
-)
+st.set_page_config(page_title="InsightLab | Superstore Analytics", page_icon="◍", layout="wide",
+                   initial_sidebar_state="expanded")
 
-# ---------- Visual identity ----------
-BG, PANEL, PANEL_2 = "#0B1020", "#121A2E", "#17213A"
-TEXT, MUTED = "#F2F5FF", "#98A6C7"
-TEAL, BLUE, PURPLE, ORANGE, RED = "#45E0C1", "#6D9EFF", "#B59CFF", "#FFB86B", "#FF718B"
-GRID = "#26324D"
-PALETTE = [TEAL, BLUE, PURPLE, ORANGE, RED, "#7BD3FF", "#D6E685", "#F28BCB"]
-DIVERGING = [RED, "#2A3555", TEAL]
+# ---------- Visual identity (light, green, rounded cards) ----------
+GREEN_DK, GREEN, GREEN_MID, GREEN_LT, GREEN_XLT = "#0F4D32", "#1F7A4D", "#3FA06B", "#8ED1A9", "#E6F4EC"
+TEXT, MUTED, PANEL, BG = "#14201A", "#7B857F", "#FFFFFF", "#EEF0EE"
+GRID, LINE = "#EDF0ED", "#E3E8E3"
+AMBER, RED = "#E8A33D", "#D64545"
+TEAL, BLUE, PURPLE, ORANGE = GREEN_MID, GREEN_DK, GREEN_LT, AMBER  # roles used by the charts
+PALETTE = [GREEN_DK, GREEN_MID, GREEN_LT, AMBER, "#5B8DEF", RED, "#B6C2BA", "#7A5CFA"]
+DIVERGING = [RED, "#F1F3F1", GREEN_MID]
+SEQ_GREEN = ["#E8F5EC", GREEN_LT, GREEN_DK]
 
-st.markdown(f"""
+CSS = """
 <style>
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap');
-:root {{ color-scheme: dark; }}
-html, body, .stApp, .stMarkdown, p, label, input, textarea, button {{ font-family: 'DM Sans', sans-serif; }}
-.stApp {{ background: radial-gradient(ellipse at 12% 0%, #17254a 0%, {BG} 44%); color: {TEXT}; }}
-[data-testid="stSidebar"] {{ background: #0D1426; border-right: 1px solid #24304D; }}
-[data-testid="stHeader"] {{ background: rgba(11,16,32,.82); }}
-.block-container {{ padding-top: 1.6rem; padding-bottom: 3rem; max-width: 1500px; }}
-.hero {{ padding: 28px 32px; border: 1px solid #29395D; border-radius: 24px;
-background: linear-gradient(115deg, rgba(29,48,87,.95), rgba(18,26,46,.95) 58%, rgba(40,31,78,.85));
-margin-bottom: 22px; position: relative; overflow: hidden; }}
-.hero:after {{ content:'✦'; position:absolute; right:35px; top:-22px; font-size:150px; color:rgba(181,156,255,.10); }}
-.eyebrow {{ color:{TEAL}; letter-spacing:2px; font-size:11px; font-weight:700; text-transform:uppercase; }}
-.hero h1 {{ font-family:'Space Grotesk',sans-serif; color:{TEXT}; font-size:35px; line-height:1.15; margin:10px 0 8px; }}
-.hero p {{ color:{MUTED}; font-size:14px; margin:0; max-width:780px; }}
-.section-title {{ font-family:'Space Grotesk',sans-serif; font-size:21px; font-weight:700; margin:26px 0 3px; color:{TEXT}; }}
-.section-sub {{ color:{MUTED}; font-size:12px; margin-bottom:14px; }}
-.kpi {{ background:linear-gradient(145deg, {PANEL_2}, {PANEL}); border:1px solid #273553; border-radius:18px; padding:18px 19px; min-height:120px; }}
-.kpi-label {{ color:{MUTED}; font-size:12px; font-weight:600; }}
-.kpi-value {{ font-family:'Space Grotesk',sans-serif; color:{TEXT}; font-size:28px; font-weight:700; margin-top:8px; letter-spacing:-.6px; }}
-.kpi-note {{ color:{MUTED}; font-size:11px; margin-top:5px; }}
-.kpi-note .up {{ color:{TEAL}; font-weight:700; }}
-.kpi-note .down {{ color:{RED}; font-weight:700; }}
-.insight {{ background:linear-gradient(120deg, rgba(69,224,193,.09), rgba(109,158,255,.06)); border:1px solid #28445A; border-radius:15px; padding:15px 17px; margin:7px 0; }}
-.insight strong {{ color:{TEAL}; }}
-div[data-testid="stPlotlyChart"] {{ background:{PANEL}; border:1px solid #24314E; border-radius:16px; padding:9px 8px 0; }}
-.stTabs [data-baseweb="tab-list"] {{ gap:8px; }}
-.stTabs [data-baseweb="tab"] {{ background:{PANEL}; border-radius:10px 10px 0 0; padding:10px 16px; }}
-.stTabs [aria-selected="true"] {{ border-bottom:2px solid {TEAL}; }}
-div[data-testid="stMetric"] {{ background:{PANEL}; border:1px solid #273553; padding:14px; border-radius:14px; }}
-.stButton button {{ border-radius:10px; }}
-hr {{ border-color:#273553; }}
-footer {{ visibility:hidden; }}
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+:root { color-scheme: light; }
+html, body, .stApp, .stMarkdown, p, label, input, textarea, button { font-family: 'Plus Jakarta Sans', sans-serif; }
+.stApp { background: __BG__; color: __TEXT__; }
+[data-testid="stHeader"] { background: transparent; }
+.block-container { padding-top: 1.3rem; padding-bottom: 3rem; max-width: 1500px; }
+footer { visibility: hidden; }
+
+/* sidebar */
+[data-testid="stSidebar"] { background: #FFFFFF; border-right: 1px solid __LINE__; }
+[data-testid="stSidebar"] .block-container, [data-testid="stSidebarUserContent"] { padding-top: 1.2rem; }
+.brand { display:flex; align-items:center; gap:10px; font-weight:800; font-size:21px; color:__TEXT__; margin-bottom:8px; }
+.brand .logo { width:34px; height:34px; border-radius:50%; border:3px solid __GREEN__; display:flex; align-items:center; justify-content:center; }
+.brand .logo:after { content:''; width:11px; height:11px; border-radius:50%; background:__GREEN__; }
+.nav-label { color:__MUTED__; font-size:11px; letter-spacing:1.5px; font-weight:700; margin:18px 0 6px 6px; }
+[data-testid="stSidebar"] div[role="radiogroup"] { gap: 2px; }
+[data-testid="stSidebar"] div[role="radiogroup"] label { padding: 10px 14px; border-radius: 12px; width: 100%; cursor: pointer; transition: background .15s; }
+[data-testid="stSidebar"] div[role="radiogroup"] label > div:first-child { display: none; }
+[data-testid="stSidebar"] div[role="radiogroup"] label p { font-size: 14.5px; color: #8A938D; font-weight: 500; margin: 0; }
+[data-testid="stSidebar"] div[role="radiogroup"] label:hover { background: #F4F7F4; }
+[data-testid="stSidebar"] div[role="radiogroup"] label:has(input:checked) { background: __XLT__; box-shadow: inset 3px 0 0 __GREEN__; }
+[data-testid="stSidebar"] div[role="radiogroup"] label:has(input:checked) p { color: __TEXT__; font-weight: 700; }
+.side-card { margin-top: 26px; border-radius: 20px; padding: 18px; color: #fff;
+  background: radial-gradient(circle at 85% 15%, #2f8f5e 0%, #0d3f29 58%, #082b1c 100%); }
+.side-card .t { font-weight:700; font-size:15px; margin-bottom:4px; }
+.side-card .s { font-size:12px; color:rgba(255,255,255,.72); line-height:1.5; }
+
+/* header + buttons */
+.page-title { font-size:36px; font-weight:800; letter-spacing:-.8px; margin:0; line-height:1.1; color:__TEXT__; }
+.page-sub { color:__MUTED__; font-size:13.5px; margin-top:6px; }
+.st-key-btn_filters button, .st-key-btn_import button, .stDownloadButton button { border-radius: 999px; padding: .55rem 1.3rem; font-weight: 600; }
+.st-key-btn_filters button { background: linear-gradient(135deg, __GREEN__, __GREEN_DK__); border: none; }
+.st-key-btn_filters button p, .st-key-btn_filters button span { color: #fff !important; }
+.st-key-btn_import button { background: #fff; border: 1.5px solid __GREEN__; }
+.st-key-btn_import button p, .st-key-btn_import button span { color: __GREEN__ !important; }
+.stDownloadButton button { background: #fff; border: 1.5px solid __GREEN__; color: __GREEN__; }
+.chips { display:flex; flex-wrap:wrap; gap:8px; margin:4px 0 14px; }
+.chip-f { background:__XLT__; color:__GREEN__; border-radius:999px; padding:4px 12px; font-size:12px; font-weight:600; }
+
+/* cards */
+.kpi { background:#fff; border:1px solid __LINE__; border-radius:22px; padding:18px 20px; min-height:138px; box-shadow:0 1px 2px rgba(20,32,26,.03); }
+.kpi-top { display:flex; justify-content:space-between; align-items:center; }
+.kpi-label { font-size:14px; font-weight:600; color:__TEXT__; }
+.kpi-arrow { width:28px; height:28px; border-radius:50%; border:1.5px solid __TEXT__; display:flex; align-items:center; justify-content:center; font-size:13px; }
+.kpi-value { font-size:44px; font-weight:700; letter-spacing:-1.5px; margin:10px 0 8px; line-height:1; color:__TEXT__; }
+.kpi-note { color:__MUTED__; font-size:11.5px; }
+.chip { border-radius:6px; padding:2px 7px; font-weight:700; margin-right:4px; }
+.chip.up { color:__GREEN__; background:__XLT__; }
+.chip.down { color:__RED__; background:#FBE9E9; }
+.kpi.dark { background: linear-gradient(145deg, #1F7A4D 0%, #0F4D32 100%); border-color:#0F4D32; }
+.kpi.dark .kpi-label, .kpi.dark .kpi-value { color:#fff; }
+.kpi.dark .kpi-arrow { background:#fff; color:__GREEN_DK__; border-color:#fff; }
+.kpi.dark .kpi-note { color:rgba(255,255,255,.78); }
+.kpi.dark .chip.up { background:rgba(255,255,255,.18); color:#C6F3DA; }
+.kpi.dark .chip.down { background:rgba(255,255,255,.18); color:#FFC2C2; }
+.card { background:#fff; border:1px solid __LINE__; border-radius:22px; padding:18px 20px; }
+.card h4 { margin:0 0 12px; font-size:16px; font-weight:700; }
+.sig { display:flex; gap:10px; padding:10px 0; border-bottom:1px solid #F0F2F0; font-size:13px; line-height:1.5; }
+.sig:last-child { border-bottom:none; }
+.sig .dot { width:9px; height:9px; border-radius:50%; background:__GREEN_MID__; margin-top:6px; flex:none; }
+.sig strong { color:__GREEN__; }
+.hero { padding: 34px 36px; border-radius: 26px; color:#fff; margin-bottom: 22px;
+  background: radial-gradient(circle at 90% 10%, #2f8f5e 0%, #0d3f29 60%, #082b1c 100%); }
+.hero .eyebrow { letter-spacing:2px; font-size:11px; font-weight:700; color:#9BE3BC; }
+.hero h1 { font-size:38px; margin:10px 0 8px; color:#fff; }
+.hero p { color:rgba(255,255,255,.78); max-width:760px; margin:0; font-size:14px; }
+div[data-testid="stPlotlyChart"] { background:#fff; border:1px solid __LINE__; border-radius:22px; padding:10px 8px 0; }
+div[data-testid="stMetric"] { background:#fff; border:1px solid __LINE__; padding:14px 16px; border-radius:18px; }
+div[data-testid="stDataFrame"] { border:1px solid __LINE__; border-radius:16px; overflow:hidden; }
+hr { border-color: __LINE__; }
 </style>
-""", unsafe_allow_html=True)
+"""
+for k, v in {"__BG__": BG, "__TEXT__": TEXT, "__MUTED__": MUTED, "__LINE__": LINE, "__GREEN__": GREEN, "__GREEN_DK__": GREEN_DK,
+             "__GREEN_MID__": GREEN_MID, "__XLT__": GREEN_XLT, "__RED__": RED}.items():
+    CSS = CSS.replace(k, v)
+st.markdown(CSS, unsafe_allow_html=True)
 
 PLOT_LAYOUT = dict(
-    paper_bgcolor=PANEL, plot_bgcolor=PANEL, font=dict(family="DM Sans", color=TEXT, size=12),
-    margin=dict(l=18, r=18, t=50, b=18), title_font=dict(size=15, color=TEXT),
+    paper_bgcolor=PANEL, plot_bgcolor=PANEL, font=dict(family="Plus Jakarta Sans", color=TEXT, size=12),
+    margin=dict(l=18, r=18, t=52, b=18), title_font=dict(size=15, color=TEXT),
     legend=dict(bgcolor="rgba(0,0,0,0)", font=dict(color=MUTED)),
-    xaxis=dict(gridcolor=GRID, zerolinecolor=GRID, linecolor=GRID),
-    yaxis=dict(gridcolor=GRID, zerolinecolor=GRID, linecolor=GRID),
+    xaxis=dict(gridcolor=GRID, zerolinecolor=GRID, linecolor=LINE),
+    yaxis=dict(gridcolor=GRID, zerolinecolor=GRID, linecolor=LINE),
 )
 
-# Streamlit renamed use_container_width -> width="stretch"; support both.
 _ver = tuple(int(x) for x in re.findall(r"\d+", st.__version__)[:2])
 STRETCH = {"width": "stretch"} if _ver >= (1, 50) else {"use_container_width": True}
 
@@ -107,6 +146,17 @@ def table(data):
     st.dataframe(data, hide_index=True, **STRETCH)
 
 
+def hbar(data, x, y, title, color=GREEN_MID, height=380, **kw):
+    plot(px.bar(data, x=x, y=y, orientation="h", title=title, color_discrete_sequence=[color], **kw), height)
+
+
+def popover(label):
+    try:
+        return st.popover(label, **STRETCH)
+    except TypeError:
+        return st.popover(label)
+
+
 def short(s, n=38):
     s = str(s)
     return s if len(s) <= n else s[: n - 1] + "…"
@@ -125,13 +175,11 @@ CANON_MAP = {_key(c): c for c in CANON}
 
 
 def clean_columns(df):
-    """Strip spaces and map variants (order_date, Sub Category, ...) to canonical names."""
     df.columns = [CANON_MAP.get(_key(c), str(c).strip()) for c in df.columns]
     return df
 
 
 def smart_to_datetime(series):
-    """Parse dates and detect dd/mm/yyyy vs mm/dd/yyyy from the data instead of guessing."""
     if pd.api.types.is_datetime64_any_dtype(series):
         return series
     s = series.astype("string").str.strip()
@@ -149,23 +197,18 @@ def prepare_data(raw):
     for col in ["Sales", "Profit", "Quantity", "Discount", "Postal Code"]:
         if col in df:
             df[col] = pd.to_numeric(df[col], errors="coerce")
-    if "Order Date" in df:
-        df["Year"] = df["Order Date"].dt.year
     if has(df, "Order Date", "Ship Date"):
         df["Shipping Days"] = (df["Ship Date"] - df["Order Date"]).dt.days
     if "Discount" in df:
-        df["Discount Band"] = pd.cut(
-            df["Discount"], bins=[-0.001, 0, 0.10, 0.20, 0.30, 0.50, 1.0],
-            labels=["0%", "≤10%", "10–20%", "20–30%", "30–50%", ">50%"],
-        )
+        df["Discount Band"] = pd.cut(df["Discount"], bins=[-0.001, 0, 0.10, 0.20, 0.30, 0.50, 1.0],
+                                     labels=["0%", "≤10%", "10–20%", "20–30%", "30–50%", ">50%"])
     return df
 
 
 @st.cache_data(show_spinner="Reading file…")
 def read_bytes(name, data):
-    bio = io.BytesIO(data)
     if name.lower().endswith((".xlsx", ".xls")):
-        return pd.read_excel(bio)
+        return pd.read_excel(io.BytesIO(data))
     try:
         return pd.read_csv(io.BytesIO(data), encoding="utf-8-sig")
     except UnicodeDecodeError:
@@ -200,32 +243,26 @@ def load_raw(uploaded):
 def kpi_block(d):
     sales = d["Sales"].sum() if "Sales" in d else np.nan
     profit = d["Profit"].sum() if "Profit" in d else np.nan
+    orders = d["Order ID"].nunique() if "Order ID" in d else len(d)
     return dict(
-        sales=sales, profit=profit,
-        orders=d["Order ID"].nunique() if "Order ID" in d else len(d),
+        sales=sales, profit=profit, orders=orders,
         customers=d["Customer ID"].nunique() if "Customer ID" in d else np.nan,
         units=d["Quantity"].sum() if "Quantity" in d else np.nan,
+        aov=(sales / orders) if orders else np.nan,
         margin=(profit / sales * 100) if pd.notna(profit) and pd.notna(sales) and sales != 0 else np.nan,
     )
 
 
-def delta_html(cur, prev, pp=False):
-    if prev is None or pd.isna(cur) or pd.isna(prev):
+def delta_html(cur, prev):
+    if prev is None or pd.isna(cur) or pd.isna(prev) or prev == 0:
         return None
-    if pp:
-        diff, txt = cur - prev, f"{cur - prev:+.1f} pp"
-    else:
-        if prev == 0:
-            return None
-        diff = cur - prev
-        txt = f"{diff / abs(prev) * 100:+.1f}%"
+    diff = cur - prev
     cls, arrow = ("up", "▲") if diff >= 0 else ("down", "▼")
-    return f'<span class="{cls}">{arrow} {txt}</span> vs previous period'
+    return f'<span class="chip {cls}">{arrow} {diff / abs(prev) * 100:+.1f}%</span>vs previous period'
 
 
 @st.cache_data(show_spinner="Fitting forecast model…")
 def run_forecast(series, horizon):
-    """Holt-Winters (additive trend + seasonality) with a simulated 80% range and a 12-month holdout check."""
     from statsmodels.tsa.holtwinters import ExponentialSmoothing
 
     def fit(s):
@@ -247,41 +284,41 @@ def run_forecast(series, horizon):
     return out
 
 
-# ---------- Sidebar ----------
+# ---------- Navigation ----------
+P_DASH, P_PROD, P_CUST = "◧  Dashboard", "▦  Products", "◎  Customers"
+P_OPS, P_FC, P_DATA = "↗  Operations", "◔  Forecast", "⌘  Data quality"
+TITLES = {P_DASH: ("Dashboard", "Track sales momentum, seasonality and the signals worth investigating."),
+          P_PROD: ("Products", "Which sub-categories and products drive revenue?"),
+          P_CUST: ("Customers & Regions", "Where do sales come from, and who are the key customers?"),
+          P_OPS: ("Operations", "Shipping performance and discount behaviour."),
+          P_FC: ("Forecast", "What do the next months look like, and how reliable is the model?"),
+          P_DATA: ("Data quality", "Check the dataset health and download the filtered records.")}
+
 with st.sidebar:
-    st.markdown("## ✦ InsightLab")
-    st.caption("AI-inspired • Learning analytics")
-    st.markdown("---")
-    st.markdown("### Data source")
-    uploaded = st.file_uploader("Upload Superstore data", type=["csv", "xlsx", "xls"])
-    st.caption("Expected fields include Sales, Profit, Order Date, Category, Region and Segment.")
-    st.markdown("---")
-    st.markdown("### About this dashboard")
-    st.markdown("Explore performance, discover patterns, and turn retail data into evidence-based decisions.")
-    st.markdown("---")
-    st.caption("Built with Streamlit · Plotly · Pandas")
+    st.markdown('<div class="brand"><span class="logo"></span>InsightLab</div>', unsafe_allow_html=True)
+    st.markdown('<div class="nav-label">MENU</div>', unsafe_allow_html=True)
+    page = st.radio("Navigation", [P_DASH, P_PROD, P_CUST, P_OPS, P_FC, P_DATA], label_visibility="collapsed", key="page")
+    info_slot = st.container()
+
+# ---------- Header ----------
+head_l, head_f, head_i = st.columns([3.3, 1, 1.25], vertical_alignment="center")
+with head_l:
+    t, sub = TITLES[page]
+    st.markdown(f'<div class="page-title">{t}</div><div class="page-sub">{sub}</div>', unsafe_allow_html=True)
+with head_i:
+    with st.container(key="btn_import"):
+        with popover("⬆ Import data"):
+            uploaded = st.file_uploader("Upload Superstore data (CSV or Excel)", type=["csv", "xlsx", "xls"])
+            st.caption("Expected fields include Sales, Order Date, Category, Region and Segment. "
+                       "If no file is uploaded, `Superstore_Cleaned.csv` next to app.py is used.")
 
 raw = load_raw(uploaded)
 if raw is None:
     st.markdown("""
-    <div class="hero">
-      <div class="eyebrow">DATA INTELLIGENCE / LEARNING STUDIO</div>
-      <h1>InsightLab</h1>
-      <p>A polished, interactive analytics workspace for exploring Superstore sales, profitability, customer segments and operational patterns.</p>
-    </div>
+    <div class="hero"><div class="eyebrow">DATA INTELLIGENCE / LEARNING STUDIO</div><h1>InsightLab</h1>
+    <p>An interactive analytics workspace for exploring Superstore sales, customers and operations.</p></div>
     """, unsafe_allow_html=True)
-    st.info("ابدأ برفع ملف البيانات من الشريط الجانبي. يدعم التطبيق ملفات CSV وExcel، ويمكنه أيضًا قراءة `Superstore_Cleaned.csv` أو `Superstore.csv` إذا كان موجودًا بجانب `app.py`.")
-    st.markdown("### ما الأسئلة التي سيجيب عنها التحليل؟")
-    c1, c2, c3 = st.columns(3)
-    with c1:
-        st.markdown("**01 · Growth**")
-        st.write("كيف تتغير المبيعات شهريًا؟ وهل توجد مواسم أو فترات ذروة؟")
-    with c2:
-        st.markdown("**02 · Profitability**")
-        st.write("ما الفئات والمناطق التي تحقق الربح فعلًا، وليس المبيعات فقط؟")
-    with c3:
-        st.markdown("**03 · Decisions**")
-        st.write("هل ترتبط الخصومات بانخفاض الربحية؟ وما المنتجات التي تستحق المراجعة؟")
+    st.info("ابدأ برفع ملف البيانات من زر Import data في أعلى الصفحة. يدعم التطبيق ملفات CSV وExcel، ويمكنه أيضًا قراءة `Superstore_Cleaned.csv` أو `Superstore.csv` إذا كان موجودًا بجانب `app.py`.")
     st.stop()
 
 df = prepare_data(raw)
@@ -292,322 +329,357 @@ if "Sales" not in df.columns:
     st.error("لم أجد عمود `Sales` في الملف. الأعمدة الموجودة: " + ", ".join(map(str, df.columns)))
     st.stop()
 
-# ---------- Hero ----------
-st.markdown("""
-<div class="hero">
-  <div class="eyebrow">✦ DATA INTELLIGENCE / LEARNING STUDIO</div>
-  <h1>Superstore Analytics</h1>
-  <p>From raw transactions to meaningful decisions. Explore sales momentum, profit drivers, customer behavior and operational efficiency through interactive visual analysis.</p>
-</div>
-""", unsafe_allow_html=True)
-
-# ---------- Filters ----------
-f1, f2, f3, f4 = st.columns([1.25, 1, 1, 1])
 has_dates = "Order Date" in df and df["Order Date"].notna().any()
-with f2:
-    region_opts = sorted(df["Region"].dropna().astype(str).unique()) if "Region" in df else []
-    regions = st.multiselect("Region", region_opts, default=region_opts)
-with f3:
-    cat_opts = sorted(df["Category"].dropna().astype(str).unique()) if "Category" in df else []
-    cats = st.multiselect("Category", cat_opts, default=cat_opts)
-with f4:
-    seg_opts = sorted(df["Segment"].dropna().astype(str).unique()) if "Segment" in df else []
-    segs = st.multiselect("Customer segment", seg_opts, default=seg_opts)
-
-base = df
-if region_opts:
-    base = base[base["Region"].astype(str).isin(regions)]
-if cat_opts:
-    base = base[base["Category"].astype(str).isin(cats)]
-if seg_opts:
-    base = base[base["Segment"].astype(str).isin(segs)]
-
-filtered, prev_df = base, None
 if has_dates:
     min_date, max_date = df["Order Date"].min().date(), df["Order Date"].max().date()
-    with f1:
-        date_range = st.date_input("Order date range", value=(min_date, max_date), min_value=min_date, max_value=max_date)
-    if isinstance(date_range, (tuple, list)) and len(date_range) == 2:
-        start = pd.Timestamp(date_range[0])
-        end_excl = pd.Timestamp(date_range[1]) + pd.Timedelta(days=1)
-        filtered = base[(base["Order Date"] >= start) & (base["Order Date"] < end_excl)]
-        span = end_excl - start
-        prev_df = base[(base["Order Date"] >= start - span) & (base["Order Date"] < start)]
-        if prev_df.empty:
-            prev_df = None
-    else:
-        f1.caption("Select both a start and an end date.")
-else:
-    f1.caption("Order dates unavailable")
+with info_slot:
+    rng = f"{min_date:%b %Y} – {max_date:%b %Y}" if has_dates else "dates unavailable"
+    st.markdown(f'<div class="side-card"><div class="t">Dataset</div><div class="s">{len(df):,} rows · {len(df.columns)} fields<br>{rng}<br>'
+                f'Use <b>Filters</b> at the top to narrow the view.</div></div>', unsafe_allow_html=True)
 
+# ---------- Filters (hidden behind a button) ----------
+region_opts = sorted(df["Region"].dropna().astype(str).unique()) if "Region" in df else []
+cat_opts = sorted(df["Category"].dropna().astype(str).unique()) if "Category" in df else []
+seg_opts = sorted(df["Segment"].dropna().astype(str).unique()) if "Segment" in df else []
+LIST_FILTERS = [("f_region", "Region", region_opts), ("f_cat", "Category", cat_opts), ("f_seg", "Customer segment", seg_opts)]
+
+for key, _, opts in LIST_FILTERS:      # keep saved selections valid when a new file is loaded
+    cur = st.session_state.get(key)
+    if cur is None or any(x not in opts for x in cur):
+        st.session_state[key] = list(opts)
+if has_dates:
+    cur = st.session_state.get("f_date")
+    if not (isinstance(cur, (tuple, list)) and len(cur) >= 1 and all(min_date <= x <= max_date for x in cur)):
+        st.session_state["f_date"] = (min_date, max_date)
+
+
+def reset_filters():
+    for k, _, o in LIST_FILTERS:
+        st.session_state[k] = list(o)
+    if has_dates:
+        st.session_state["f_date"] = (min_date, max_date)
+
+
+date_sel = st.session_state.get("f_date", ())
+date_active = has_dates and isinstance(date_sel, (tuple, list)) and len(date_sel) == 2 and (date_sel[0], date_sel[1]) != (min_date, max_date)
+chips = [f"{lab}: {', '.join(st.session_state[k]) or 'none'}" for k, lab, o in LIST_FILTERS if o and set(st.session_state[k]) != set(o)]
+if date_active:
+    chips.append(f"Dates: {date_sel[0]:%d %b %Y} → {date_sel[1]:%d %b %Y}")
+
+with head_f:
+    with st.container(key="btn_filters"):
+        pop = popover(f"☰ Filters ({len(chips)})" if chips else "☰ Filters")
+with pop:
+    if has_dates:
+        st.date_input("Order date range", min_value=min_date, max_value=max_date, key="f_date")
+        if not (isinstance(st.session_state.get("f_date"), (tuple, list)) and len(st.session_state["f_date"]) == 2):
+            st.caption("Select both a start and an end date.")
+    for key, lab, opts in LIST_FILTERS:
+        if opts:
+            st.multiselect(lab, opts, key=key)
+    st.button("Reset filters", on_click=reset_filters, **STRETCH)
+
+base = df
+for key, col, opts in [("f_region", "Region", region_opts), ("f_cat", "Category", cat_opts), ("f_seg", "Segment", seg_opts)]:
+    if opts:
+        base = base[base[col].astype(str).isin(st.session_state[key])]
+
+filtered, prev_df = base, None
+sel = st.session_state.get("f_date", ())
+if has_dates and isinstance(sel, (tuple, list)) and len(sel) == 2:
+    start, end_excl = pd.Timestamp(sel[0]), pd.Timestamp(sel[1]) + pd.Timedelta(days=1)
+    filtered = base[(base["Order Date"] >= start) & (base["Order Date"] < end_excl)]
+    span = end_excl - start
+    prev_df = base[(base["Order Date"] >= start - span) & (base["Order Date"] < start)]
+    prev_df = prev_df if not prev_df.empty else None
+
+if chips:
+    st.markdown('<div class="chips">' + "".join(f'<span class="chip-f">{c}</span>' for c in chips) + "</div>", unsafe_allow_html=True)
 if filtered.empty:
-    st.warning("لا توجد سجلات تطابق الفلاتر المختارة. وسّع نطاق التاريخ أو أعد اختيار الفئات.")
+    st.warning("لا توجد سجلات تطابق الفلاتر المختارة. افتح Filters ووسّع النطاق أو اضغط Reset filters.")
     st.stop()
 
-# ---------- KPI strip ----------
-cur = kpi_block(filtered)
-prv = kpi_block(prev_df) if prev_df is not None else None
-avg_order = cur["sales"] / cur["orders"] if cur["orders"] else np.nan
+has_od = "Order Date" in filtered and filtered["Order Date"].notna().any()
+has_profit = "Profit" in filtered and filtered["Profit"].notna().any()
 
-st.markdown('<div class="section-title">Executive snapshot</div><div class="section-sub">Headline metrics for the selected data. Deltas compare with the immediately preceding period of equal length (when data exists).</div>', unsafe_allow_html=True)
-kpis = [
-    ("TOTAL SALES", money(cur["sales"]), delta_html(cur["sales"], prv and prv["sales"]) or "Revenue across selected records"),
-    ("NET PROFIT", money(cur["profit"]),
-     (delta_html(cur["profit"], prv and prv["profit"]) or "") + (f"<br>{cur['margin']:.1f}% profit margin" if pd.notna(cur["margin"]) else "")
-     or "Profitability indicator"),
-    ("ORDERS", fmt_int(cur["orders"]), delta_html(cur["orders"], prv and prv["orders"]) or (f"{money(avg_order)} average sales / order" if pd.notna(avg_order) else "Distinct order count")),
-    ("CUSTOMERS", fmt_int(cur["customers"]), delta_html(cur["customers"], prv and prv["customers"]) or "Distinct customer IDs"),
-    ("UNITS SOLD", fmt_int(cur["units"]), delta_html(cur["units"], prv and prv["units"]) or "Total quantity"),
-]
-for col, (label, value, note) in zip(st.columns(5), kpis):
-    with col:
-        st.markdown(f'<div class="kpi"><div class="kpi-label">{label}</div><div class="kpi-value">{value}</div><div class="kpi-note">{note}</div></div>', unsafe_allow_html=True)
+# =====================================================================
+#  DASHBOARD
+# =====================================================================
+if page == P_DASH:
+    cur = kpi_block(filtered)
+    prv = kpi_block(prev_df) if prev_df is not None else None
+    P = lambda k: prv[k] if prv else None
+    cand = [("TOTAL SALES", money(cur["sales"]), delta_html(cur["sales"], P("sales")), "Revenue in selection")]
+    if has_profit:
+        cand.append(("NET PROFIT", money(cur["profit"]), delta_html(cur["profit"], P("profit")),
+                     f"{cur['margin']:.1f}% profit margin" if pd.notna(cur["margin"]) else "Profitability"))
+    cand += [("ORDERS", fmt_int(cur["orders"]), delta_html(cur["orders"], P("orders")), "Distinct orders"),
+             ("CUSTOMERS", fmt_int(cur["customers"]), delta_html(cur["customers"], P("customers")), "Distinct customers")]
+    if "Quantity" in filtered:
+        cand.append(("UNITS SOLD", fmt_int(cur["units"]), delta_html(cur["units"], P("units")), "Total quantity"))
+    cand.append(("AVG ORDER VALUE", money(cur["aov"]), delta_html(cur["aov"], P("aov")), "Sales per order"))
+    for i, (col, (label, value, note, fb)) in enumerate(zip(st.columns(4), cand[:4])):
+        with col:
+            st.markdown(f'<div class="kpi {"dark" if i == 0 else ""}"><div class="kpi-top"><span class="kpi-label">{label}</span>'
+                        f'<span class="kpi-arrow">↗</span></div><div class="kpi-value">{value}</div>'
+                        f'<div class="kpi-note">{note or fb}</div></div>', unsafe_allow_html=True)
+    st.write("")
 
-# ---------- Insights ----------
-st.markdown('<div class="section-title">Signals worth investigating</div><div class="section-sub">Short, data-driven observations from the current selection — associations, not causal claims.</div>', unsafe_allow_html=True)
-insights = []
-if has(filtered, "Category", "Sales"):
-    cs = filtered.groupby("Category")["Sales"].sum().sort_values(ascending=False)
-    if len(cs):
-        insights.append(f"<strong>Sales leader:</strong> {cs.index[0]} contributes the most sales ({money(cs.iloc[0])}, {cs.iloc[0] / cs.sum() * 100:.0f}% of the total).")
-if has(filtered, "Sub-Category", "Profit"):
-    ps = filtered.groupby("Sub-Category")["Profit"].sum().sort_values()
-    if len(ps):
-        note = "investigate pricing, discounting and product mix." if ps.iloc[0] < 0 else "all sub-categories are profitable in this selection."
-        insights.append(f"<strong>Profit watchlist:</strong> {ps.index[0]} has the lowest total profit ({money(ps.iloc[0])}); {note}")
-if has(filtered, "Profit"):
-    loss_share = (filtered["Profit"] < 0).mean() * 100
-    loss_amt = filtered.loc[filtered["Profit"] < 0, "Profit"].sum()
-    insights.append(f"<strong>Loss-making lines:</strong> {loss_share:.1f}% of order lines lose money, totalling {money(loss_amt)}.")
-if has(filtered, "Discount", "Profit"):
-    cd = filtered[["Discount", "Profit"]].dropna()
-    if len(cd) > 2 and cd["Discount"].nunique() > 1 and cd["Profit"].nunique() > 1:
-        corr = cd["Discount"].corr(cd["Profit"])
-        direction = "negative" if corr < -0.15 else "positive" if corr > 0.15 else "weak"
-        insights.append(f"<strong>Discount signal:</strong> discount and profit have a {direction} linear correlation ({corr:.2f}). This is an association, not proof of causation.")
-if has(filtered, "Discount Band", "Profit"):
-    bands = filtered.groupby("Discount Band", observed=True)["Profit"].agg(["sum", "size"])
-    bands = bands[bands["size"] >= 30]
-    neg = bands[bands["sum"] < 0]
-    if len(neg):
-        insights.append(f"<strong>Discount threshold:</strong> total profit turns negative from the <em>{neg.index[0]}</em> discount band upward in this selection.")
-if has(filtered, "Region", "Profit"):
-    rp = filtered.groupby("Region")["Profit"].sum().sort_values()
-    if len(rp):
-        insights.append(f"<strong>Regional opportunity:</strong> {rp.index[0]} has the lowest total profit ({money(rp.iloc[0])}).")
-if has(filtered, "Order Date") and filtered["Order Date"].notna().any():
-    m = filtered.groupby(filtered["Order Date"].dt.month)["Sales"].sum()
-    if len(m) >= 6:
-        mn = pd.Timestamp(2000, int(m.idxmax()), 1).strftime("%B")
-        insights.append(f"<strong>Peak month:</strong> {mn} has the highest cumulative sales across the selected years.")
-for item in insights or ["Upload a dataset with standard Superstore fields to unlock automated business signals."]:
-    st.markdown(f'<div class="insight">{item}</div>', unsafe_allow_html=True)
+    # signals
+    insights = []
+    if has(filtered, "Category"):
+        cs = filtered.groupby("Category")["Sales"].sum().sort_values(ascending=False)
+        insights.append(f"<strong>Sales leader:</strong> {cs.index[0]} brings {money(cs.iloc[0])} ({cs.iloc[0] / cs.sum() * 100:.0f}% of sales).")
+    if has(filtered, "Sub-Category"):
+        ss = filtered.groupby("Sub-Category")["Sales"].sum().sort_values(ascending=False)
+        insights.append(f"<strong>Top sub-category:</strong> {ss.index[0]} ({money(ss.iloc[0])}); the top 3 make up {ss.head(3).sum() / ss.sum() * 100:.0f}% of sales.")
+    if has(filtered, "Region"):
+        rs = filtered.groupby("Region")["Sales"].sum().sort_values(ascending=False)
+        insights.append(f"<strong>Strongest region:</strong> {rs.index[0]} ({rs.iloc[0] / rs.sum() * 100:.0f}% of sales); weakest is {rs.index[-1]} ({rs.iloc[-1] / rs.sum() * 100:.0f}%).")
+    if has_od:
+        mo = filtered.groupby(filtered["Order Date"].dt.month)["Sales"].sum()
+        if len(mo) >= 6:
+            insights.append(f"<strong>Peak month:</strong> {pd.Timestamp(2000, int(mo.idxmax()), 1):%B} has the highest cumulative sales; {pd.Timestamp(2000, int(mo.idxmin()), 1):%B} the lowest.")
+    if has(filtered, "Customer ID"):
+        cu = filtered.groupby("Customer ID")["Sales"].sum().sort_values(ascending=False)
+        n10 = max(1, int(len(cu) * 0.1))
+        insights.append(f"<strong>Customer concentration:</strong> the top 10% of customers generate {cu.head(n10).sum() / cu.sum() * 100:.0f}% of sales.")
+    if has_profit:
+        loss = (filtered["Profit"] < 0).mean() * 100
+        insights.append(f"<strong>Loss-making lines:</strong> {loss:.1f}% of order lines lose money ({money(filtered.loc[filtered['Profit'] < 0, 'Profit'].sum())}).")
+    if has(filtered, "Discount", "Profit"):
+        cd = filtered[["Discount", "Profit"]].dropna()
+        if len(cd) > 2 and cd["Discount"].nunique() > 1:
+            insights.append(f"<strong>Discount signal:</strong> correlation with profit is {cd['Discount'].corr(cd['Profit']):.2f} (association, not causation).")
 
-# ---------- Charts ----------
-st.markdown('<div class="section-title">Explore the business</div><div class="section-sub">Each chart answers a practical question. Hover for details; use the filters above to investigate a subset.</div>', unsafe_allow_html=True)
-tab_overview, tab_products, tab_customers, tab_operations, tab_forecast, tab_data = st.tabs(
-    ["✦ Overview", "▦ Products & Profit", "◎ Customers & Regions", "↗ Operations", "🔮 Forecast", "⌘ Data quality"]
-)
-
-# ===== Overview =====
-with tab_overview:
-    left, right = st.columns([1.45, 1])
+    left, right = st.columns([1.6, 1])
     with left:
-        if filtered["Order Date"].notna().any() if "Order Date" in filtered else False:
+        if has_od:
             monthly = filtered.dropna(subset=["Order Date"]).set_index("Order Date").resample("MS")["Sales"].sum().reset_index()
             monthly["3-month avg"] = monthly["Sales"].rolling(3, min_periods=1).mean()
             fig = go.Figure()
             fig.add_trace(go.Scatter(x=monthly["Order Date"], y=monthly["Sales"], name="Monthly sales", mode="lines",
-                                     line=dict(color=TEAL, width=2.5), fill="tozeroy", fillcolor="rgba(69,224,193,0.13)"))
+                                     line=dict(color=GREEN, width=2.8), fill="tozeroy", fillcolor="rgba(63,160,107,0.14)"))
             fig.add_trace(go.Scatter(x=monthly["Order Date"], y=monthly["3-month avg"], name="3-month average",
-                                     mode="lines", line=dict(color=ORANGE, width=2, dash="dash")))
-            fig.update_layout(title="Are sales growing or slowing over time?", legend=dict(orientation="h", y=1.12, x=0))
+                                     mode="lines", line=dict(color=AMBER, width=2, dash="dash")))
+            fig.update_layout(title="Sales analytics: growing or slowing?", legend=dict(orientation="h", y=1.13, x=0))
             fig.update_xaxes(dtick="M3", tickformat="%b\n%Y")
-            plot(fig, 370)
-            st.caption("The first and last months may be partial depending on the selected dates.")
-        else:
-            tmp = filtered.groupby("Category", as_index=False)["Sales"].sum() if "Category" in filtered else None
-            if tmp is not None:
-                plot(px.bar(tmp, x="Category", y="Sales", title="Sales by category", color="Category", color_discrete_sequence=PALETTE))
-            else:
-                st.info("Add Order Date and Sales columns to view sales trends.")
+            plot(fig, 400)
+        elif has(filtered, "Category"):
+            plot(px.bar(filtered.groupby("Category", as_index=False)["Sales"].sum(), x="Category", y="Sales",
+                        title="Sales by category", color="Category", color_discrete_sequence=PALETTE), 400)
     with right:
-        if has(filtered, "Category", "Sales"):
-            tmp = filtered.groupby("Category", as_index=False)["Sales"].sum().sort_values("Sales", ascending=False)
-            fig = px.pie(tmp, names="Category", values="Sales", hole=.68, title="Which categories drive revenue?", color_discrete_sequence=PALETTE)
-            fig.update_traces(textposition="outside", textinfo="percent+label", marker=dict(line=dict(color=PANEL, width=3)))
-            fig.update_layout(showlegend=False)
-            plot(fig, 370)
-        elif has(filtered, "Region", "Sales"):
-            tmp = filtered.groupby("Region", as_index=False)["Sales"].sum()
-            plot(px.bar(tmp, x="Region", y="Sales", title="Sales by region", color="Region", color_discrete_sequence=PALETTE))
+        items = "".join(f'<div class="sig"><span class="dot"></span><div>{i}</div></div>' for i in insights[:6])
+        st.markdown(f'<div class="card" style="min-height:420px"><h4>Signals worth investigating</h4>{items}'
+                    f'<div style="color:{MUTED};font-size:11px;margin-top:10px">Associations from the current selection, not causal claims.</div></div>',
+                    unsafe_allow_html=True)
 
-    if "Order Date" in filtered and filtered["Order Date"].notna().any():
-        left, right = st.columns([1.45, 1])
-        with left:
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        if has(filtered, "Category"):
+            tmp = filtered.groupby("Category", as_index=False)["Sales"].sum().sort_values("Sales", ascending=False)
+            fig = px.pie(tmp, names="Category", values="Sales", hole=.66, title="Which categories drive revenue?", color_discrete_sequence=PALETTE)
+            fig.update_traces(textinfo="percent", marker=dict(line=dict(color=PANEL, width=3)))
+            fig.update_layout(legend=dict(orientation="h", y=-0.05))
+            plot(fig, 340)
+    with c2:
+        if has_od:
+            d = filtered.dropna(subset=["Order Date"])
+            dow = d.groupby(d["Order Date"].dt.dayofweek)["Sales"].sum().reindex(range(7), fill_value=0)
+            top = int(dow.idxmax())
+            fig = go.Figure(go.Bar(
+                x=["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"], y=dow.values,
+                marker=dict(color=[GREEN_DK if i == top else "#9DBBA9" for i in range(7)],
+                            pattern=dict(shape=["" if i == top else "/" for i in range(7)], bgcolor="#FFFFFF", size=6, solidity=0.35)),
+                text=[f"{v / dow.sum() * 100:.0f}%" if i == top else "" for i, v in enumerate(dow.values)], textposition="outside",
+                hovertemplate="%{x}: %{y:$,.0f}<extra></extra>"))
+            fig.update_layout(title="Which weekday sells the most?", showlegend=False)
+            plot(fig, 340)
+    with c3:
+        if has_od:
+            yr = filtered.dropna(subset=["Order Date"]).groupby(filtered["Order Date"].dt.year).agg(
+                **({"Sales": ("Sales", "sum")} | ({"Profit": ("Profit", "sum")} if has_profit else {}))).reset_index()
+            yr.columns = ["Year"] + list(yr.columns[1:])
+            yr["Year"] = yr["Year"].astype(int).astype(str)
+            fig = px.bar(yr, x="Year", y=[c for c in ["Sales", "Profit"] if c in yr], barmode="group", title="Year over year",
+                         color_discrete_map={"Sales": GREEN_DK, "Profit": GREEN_LT})
+            fig.update_layout(legend_title_text="", legend=dict(orientation="h", y=-0.05))
+            plot(fig, 340)
+
+    left, right = st.columns([1.6, 1])
+    with left:
+        if has_od:
             d = filtered.dropna(subset=["Order Date"])
             pv = d.pivot_table(index=d["Order Date"].dt.year, columns=d["Order Date"].dt.month, values="Sales", aggfunc="sum").reindex(columns=range(1, 13))
             pv.columns = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
             pv.index = pv.index.astype(int).astype(str)
-            fig = px.imshow(pv, aspect="auto", color_continuous_scale=["#17213A", BLUE, TEAL],
-                            title="Seasonality: which months are strongest each year?", labels=dict(color="Sales"))
-            plot(fig, 300)
-        with right:
-            if has(filtered, "Profit"):
-                yr = d.groupby(d["Order Date"].dt.year).agg(Sales=("Sales", "sum"), Profit=("Profit", "sum")).reset_index()
-                yr.columns = ["Year", "Sales", "Profit"]
-                yr["Year"] = yr["Year"].astype(int).astype(str)
-                fig = px.bar(yr, x="Year", y=["Sales", "Profit"], barmode="group", title="Year over year",
-                             color_discrete_map={"Sales": BLUE, "Profit": TEAL})
-                fig.update_layout(legend_title_text="")
-                plot(fig, 300)
+            plot(px.imshow(pv, aspect="auto", color_continuous_scale=SEQ_GREEN, title="Seasonality: strongest months each year", labels=dict(color="Sales")), 320)
+    with right:
+        if has(filtered, "Sub-Category"):
+            ts = filtered.groupby("Sub-Category", as_index=False)["Sales"].sum().nlargest(6, "Sales").sort_values("Sales")
+            hbar(ts, "Sales", "Sub-Category", "Top sub-categories by sales", GREEN_MID, 320)
 
-    left, right = st.columns(2)
-    with left:
-        if has(filtered, "Sales", "Profit"):
+    if has_profit:
+        left, right = st.columns(2)
+        with left:
             n = min(len(filtered), 3000)
             samp = filtered.sample(n, random_state=0) if len(filtered) > n else filtered
             fig = px.scatter(samp, x="Sales", y="Profit", color="Category" if "Category" in samp else None,
                              hover_data=[c for c in ["Product Name", "Sub-Category", "Discount", "Region"] if c in samp],
-                             title="Do high-sales transactions also deliver profit?",
-                             color_discrete_sequence=PALETTE, opacity=.7, render_mode="webgl")
+                             title="Do high-sales transactions also deliver profit?", color_discrete_sequence=PALETTE, opacity=.7, render_mode="webgl")
             fig.add_hline(y=0, line_dash="dash", line_color=RED, opacity=.8)
             plot(fig, 360)
-            st.caption(f"Points below zero are loss-making lines. Showing {n:,} of {len(filtered):,} lines" + (" (random sample for speed)." if n < len(filtered) else "."))
-    with right:
-        if has(filtered, "Discount Band", "Profit"):
-            dd = filtered.dropna(subset=["Discount Band"])
-            fig = px.box(dd, x="Discount Band", y="Profit", points=False, title="How does profitability vary by discount level?",
-                         color="Discount Band", color_discrete_sequence=PALETTE,
-                         category_orders={"Discount Band": ["0%", "≤10%", "10–20%", "20–30%", "30–50%", ">50%"]})
-            fig.update_layout(showlegend=False, xaxis_title="Discount band")
-            plot(fig, 360)
-            st.caption("Compare profit distributions across discount bands. Product and customer mix may also explain differences.")
-
-# ===== Products =====
-with tab_products:
-    if has(filtered, "Sub-Category", "Sales", "Profit"):
-        pp = filtered.groupby("Sub-Category", as_index=False).agg(Sales=("Sales", "sum"), Profit=("Profit", "sum"))
-        pp["Margin %"] = np.where(pp["Sales"] != 0, pp["Profit"] / pp["Sales"] * 100, np.nan)
-        pp = pp.sort_values("Sales", ascending=True)
-        fig = go.Figure()
-        fig.add_trace(go.Bar(y=pp["Sub-Category"], x=pp["Sales"], name="Sales", orientation="h", marker_color=BLUE))
-        fig.add_trace(go.Bar(y=pp["Sub-Category"], x=pp["Profit"], name="Profit", orientation="h", marker_color=TEAL))
-        fig.update_layout(title="Which sub-categories generate sales — and which generate profit?", barmode="group", xaxis_title="Amount")
-        plot(fig, max(430, len(pp) * 27))
-
-        left, right = st.columns(2)
-        with left:
-            m = pp.sort_values("Margin %")
-            fig = px.bar(m, x="Margin %", y="Sub-Category", orientation="h", color="Margin %", color_continuous_scale=DIVERGING,
-                         color_continuous_midpoint=0, title="Profit margin by sub-category")
-            fig.update_layout(coloraxis_showscale=False)
-            plot(fig, max(380, len(m) * 26))
+            st.caption(f"Showing {n:,} of {len(filtered):,} lines" + (" (random sample for speed)." if n < len(filtered) else "."))
         with right:
-            fig = px.scatter(pp, x="Sales", y="Profit", text="Sub-Category", size=pp["Sales"].abs(), color="Margin %",
-                             color_continuous_scale=DIVERGING, color_continuous_midpoint=0,
-                             title="Portfolio map: scale vs. profitability",
-                             hover_data={"Margin %": ":.1f", "Sales": ":,.0f", "Profit": ":,.0f"})
-            fig.add_hline(y=0, line_dash="dash", line_color=RED)
-            fig.update_traces(textposition="top center", textfont=dict(size=10))
-            plot(fig, max(380, len(pp) * 26))
+            if "Discount Band" in filtered:
+                dd = filtered.dropna(subset=["Discount Band"])
+                fig = px.box(dd, x="Discount Band", y="Profit", points=False, title="Profit distribution by discount level",
+                             color="Discount Band", color_discrete_sequence=PALETTE,
+                             category_orders={"Discount Band": ["0%", "≤10%", "10–20%", "20–30%", "30–50%", ">50%"]})
+                fig.update_layout(showlegend=False)
+                plot(fig, 360)
 
-    if has(filtered, "Product Name", "Profit"):
-        prod = filtered.groupby("Product Name", as_index=False).agg(Profit=("Profit", "sum"), Sales=("Sales", "sum"))
+# =====================================================================
+#  PRODUCTS
+# =====================================================================
+elif page == P_PROD:
+    if has(filtered, "Sub-Category"):
+        agg = {"Sales": ("Sales", "sum")} | ({"Profit": ("Profit", "sum")} if has_profit else {})
+        pp = filtered.groupby("Sub-Category", as_index=False).agg(**agg)
+        pp["Share %"] = pp["Sales"] / pp["Sales"].sum() * 100
+        if has_profit:
+            pp["Margin %"] = np.where(pp["Sales"] != 0, pp["Profit"] / pp["Sales"] * 100, np.nan)
+            q = pp.sort_values("Sales")
+            fig = go.Figure()
+            fig.add_trace(go.Bar(y=q["Sub-Category"], x=q["Sales"], name="Sales", orientation="h", marker_color=GREEN_DK))
+            fig.add_trace(go.Bar(y=q["Sub-Category"], x=q["Profit"], name="Profit", orientation="h", marker_color=GREEN_LT))
+            fig.update_layout(title="Which sub-categories generate sales — and which generate profit?", barmode="group")
+            plot(fig, max(430, len(q) * 27))
+            left, right = st.columns(2)
+            with left:
+                m = pp.sort_values("Margin %")
+                fig = px.bar(m, x="Margin %", y="Sub-Category", orientation="h", color="Margin %", color_continuous_scale=DIVERGING,
+                             color_continuous_midpoint=0, title="Profit margin by sub-category")
+                fig.update_layout(coloraxis_showscale=False)
+                plot(fig, max(380, len(m) * 26))
+            with right:
+                fig = px.scatter(pp, x="Sales", y="Profit", text="Sub-Category", size=pp["Sales"].abs(), color="Margin %",
+                                 color_continuous_scale=DIVERGING, color_continuous_midpoint=0, title="Portfolio map: scale vs. profitability")
+                fig.add_hline(y=0, line_dash="dash", line_color=RED)
+                fig.update_traces(textposition="top center", textfont=dict(size=10))
+                plot(fig, max(380, len(m) * 26))
+        else:
+            left, right = st.columns([1.15, 1])
+            with left:
+                hbar(pp.sort_values("Sales"), "Sales", "Sub-Category", "Sales by sub-category", GREEN_MID, max(430, len(pp) * 27),
+                     hover_data={"Share %": ":.1f"})
+            with right:
+                pa = pp.sort_values("Sales", ascending=False).reset_index(drop=True)
+                pa["Cumulative %"] = pa["Sales"].cumsum() / pa["Sales"].sum() * 100
+                fig = go.Figure()
+                fig.add_trace(go.Bar(x=pa["Sub-Category"], y=pa["Sales"], name="Sales", marker_color=GREEN_MID))
+                fig.add_trace(go.Scatter(x=pa["Sub-Category"], y=pa["Cumulative %"], name="Cumulative share", mode="lines+markers",
+                                         line=dict(color=AMBER, width=3), yaxis="y2"))
+                fig.update_layout(title="Pareto: how concentrated is revenue?", legend=dict(orientation="h", y=1.12, x=0),
+                                  yaxis2=dict(overlaying="y", side="right", range=[0, 105], showgrid=False, ticksuffix="%"))
+                fig.update_xaxes(tickangle=-45)
+                plot(fig, max(430, len(pp) * 27))
+    if has(filtered, "Product Name"):
+        prod = filtered.groupby("Product Name", as_index=False).agg(Sales=("Sales", "sum"), **({"Profit": ("Profit", "sum")} if has_profit else {}))
         prod["Label"] = prod["Product Name"].map(short)
+        key = "Profit" if has_profit else "Sales"
         left, right = st.columns(2)
         with left:
-            top = prod.nlargest(10, "Profit").sort_values("Profit")
-            fig = px.bar(top, x="Profit", y="Label", orientation="h", title="Top 10 products by profit", color_discrete_sequence=[TEAL],
-                         hover_data={"Product Name": True, "Label": False})
-            plot(fig, 400)
+            hbar(prod.nlargest(10, key).sort_values(key), key, "Label", f"Top 10 products by {key.lower()}", GREEN_MID, 400,
+                 hover_data={"Product Name": True, "Label": False})
         with right:
-            bot = prod.nsmallest(10, "Profit").sort_values("Profit", ascending=False)
-            fig = px.bar(bot, x="Profit", y="Label", orientation="h", title="Bottom 10 products by profit — review candidates",
-                         color_discrete_sequence=[RED], hover_data={"Product Name": True, "Label": False})
-            plot(fig, 400)
-
-    if has(filtered, "Sub-Category", "Sales", "Profit"):
+            hbar(prod.nsmallest(10, key).sort_values(key, ascending=False), key, "Label",
+                 f"Bottom 10 products by {key.lower()}", RED if has_profit else GREEN_LT, 400, hover_data={"Product Name": True, "Label": False})
+    if has(filtered, "Sub-Category"):
         st.markdown("#### Sub-category detail")
-        table(pp.sort_values("Profit").style.format({"Sales": "${:,.2f}", "Profit": "${:,.2f}", "Margin %": "{:.1f}%"}))
+        fmt = {"Sales": "${:,.2f}", "Share %": "{:.1f}%"} | ({"Profit": "${:,.2f}", "Margin %": "{:.1f}%"} if has_profit else {})
+        table(pp.sort_values("Profit" if has_profit else "Sales", ascending=has_profit).style.format(fmt))
     else:
-        st.info("Products & Profit requires Sub-Category, Sales and Profit columns.")
+        st.info("This page requires a Sub-Category column.")
 
-# ===== Customers & regions =====
-with tab_customers:
+# =====================================================================
+#  CUSTOMERS & REGIONS
+# =====================================================================
+elif page == P_CUST:
+    mcols = ["Sales"] + (["Profit"] if has_profit else [])
     left, right = st.columns(2)
     with left:
-        if has(filtered, "Region", "Profit"):
-            reg = filtered.groupby("Region", as_index=False).agg(Sales=("Sales", "sum"), Profit=("Profit", "sum"))
-            fig = px.bar(reg, x="Region", y=["Sales", "Profit"], barmode="group", title="Which regions contribute most to sales and profit?",
-                         color_discrete_map={"Sales": BLUE, "Profit": TEAL})
+        if "Region" in filtered:
+            reg = filtered.groupby("Region", as_index=False)[mcols].sum()
+            fig = px.bar(reg, x="Region", y=mcols, barmode="group", title="Which regions contribute most?",
+                         color_discrete_map={"Sales": GREEN_DK, "Profit": GREEN_LT})
             fig.update_layout(legend_title_text="")
             plot(fig, 370)
-        else:
-            st.info("Requires Region, Sales and Profit.")
     with right:
-        if has(filtered, "Segment", "Profit"):
-            seg = filtered.groupby("Segment", as_index=False).agg(Sales=("Sales", "sum"), Profit=("Profit", "sum"))
-            fig = px.bar(seg, x="Segment", y=["Sales", "Profit"], barmode="group", title="Which customer segment is most valuable?",
-                         color_discrete_map={"Sales": PURPLE, "Profit": TEAL})
+        if "Segment" in filtered:
+            seg = filtered.groupby("Segment", as_index=False)[mcols].sum()
+            fig = px.bar(seg, x="Segment", y=mcols, barmode="group", title="Which customer segment is most valuable?",
+                         color_discrete_map={"Sales": GREEN_DK, "Profit": GREEN_LT})
             fig.update_layout(legend_title_text="")
             plot(fig, 370)
+    if has(filtered, "Region", "Category"):
+        if has_profit:
+            g = filtered.groupby(["Region", "Category"]).agg(Sales=("Sales", "sum"), Profit=("Profit", "sum")).reset_index()
+            g["v"] = np.where(g["Sales"] != 0, g["Profit"] / g["Sales"] * 100, np.nan)
+            fig = px.imshow(g.pivot(index="Region", columns="Category", values="v"), text_auto=".1f", aspect="auto",
+                            color_continuous_scale=DIVERGING, color_continuous_midpoint=0, title="Profit margin (%) by region and category")
         else:
-            st.info("Requires Segment, Sales and Profit.")
-
-    if has(filtered, "Region", "Category", "Sales", "Profit"):
-        g = filtered.groupby(["Region", "Category"]).agg(Sales=("Sales", "sum"), Profit=("Profit", "sum")).reset_index()
-        g["Margin %"] = np.where(g["Sales"] != 0, g["Profit"] / g["Sales"] * 100, np.nan)
-        pv = g.pivot(index="Region", columns="Category", values="Margin %")
-        fig = px.imshow(pv, text_auto=".1f", aspect="auto", color_continuous_scale=DIVERGING, color_continuous_midpoint=0,
-                        title="Profit margin (%) by region and category", labels=dict(color="Margin %"))
+            g = filtered.groupby(["Region", "Category"])["Sales"].sum().reset_index()
+            fig = px.imshow(g.pivot(index="Region", columns="Category", values="Sales") / 1000, text_auto=".0f", aspect="auto",
+                            color_continuous_scale=SEQ_GREEN, title="Sales ($K) by region and category", labels=dict(color="$K"))
         plot(fig, 330)
-
-    if has(filtered, "State", "Profit"):
-        st_p = filtered.groupby("State", as_index=False)["Profit"].sum()
+    if "State" in filtered:
+        stt = filtered.groupby("State", as_index=False)[mcols].sum()
+        key = "Profit" if has_profit else "Sales"
         left, right = st.columns(2)
         with left:
-            plot(px.bar(st_p.nlargest(10, "Profit").sort_values("Profit"), x="Profit", y="State", orientation="h",
-                        title="Top 10 states by profit", color_discrete_sequence=[TEAL]), 380)
+            hbar(stt.nlargest(10, key).sort_values(key), key, "State", f"Top 10 states by {key.lower()}", GREEN_MID, 380)
         with right:
-            plot(px.bar(st_p.nsmallest(10, "Profit").sort_values("Profit", ascending=False), x="Profit", y="State", orientation="h",
-                        title="Bottom 10 states by profit", color_discrete_sequence=[RED]), 380)
-
-    if has(filtered, "Customer ID", "Sales", "Profit"):
-        cust = filtered.groupby("Customer ID", as_index=False).agg(Sales=("Sales", "sum"), Profit=("Profit", "sum"))
+            if has_profit:
+                hbar(stt.nsmallest(10, key).sort_values(key, ascending=False), key, "State", "Bottom 10 states by profit", RED, 380)
+            elif "City" in filtered:
+                hbar(filtered.groupby("City", as_index=False)["Sales"].sum().nlargest(10, "Sales").sort_values("Sales"),
+                     "Sales", "City", "Top 10 cities by sales", GREEN_DK, 380)
+    if has(filtered, "Customer ID"):
+        cust = filtered.groupby("Customer ID", as_index=False)[mcols].sum()
         if "Customer Name" in filtered:
-            names = filtered.drop_duplicates("Customer ID").set_index("Customer ID")["Customer Name"]
-            cust["Customer"] = cust["Customer ID"].map(names).fillna(cust["Customer ID"])
+            nm = filtered.drop_duplicates("Customer ID").set_index("Customer ID")["Customer Name"]
+            cust["Customer"] = cust["Customer ID"].map(nm).fillna(cust["Customer ID"])
         else:
             cust["Customer"] = cust["Customer ID"]
         cust = cust.nlargest(15, "Sales").sort_values("Sales")
-        fig = px.bar(cust, x="Sales", y="Customer", orientation="h", color="Profit", color_continuous_scale=DIVERGING,
-                     color_continuous_midpoint=0, title="Who are the top 15 customers by sales — and are they profitable?",
-                     hover_data={"Profit": ":$,.2f", "Sales": ":$,.2f"})
-        plot(fig, 480)
+        if has_profit:
+            fig = px.bar(cust, x="Sales", y="Customer", orientation="h", color="Profit", color_continuous_scale=DIVERGING,
+                         color_continuous_midpoint=0, title="Top 15 customers by sales — and are they profitable?")
+            plot(fig, 480)
+        else:
+            hbar(cust, "Sales", "Customer", "Top 15 customers by sales", GREEN_MID, 480)
     if has(filtered, "Segment", "Order ID"):
         o = filtered.groupby("Segment").agg(Orders=("Order ID", "nunique")).reset_index()
         fig = px.pie(o, names="Segment", values="Orders", hole=.65, title="Share of distinct orders by customer segment", color_discrete_sequence=PALETTE)
-        fig.update_traces(textposition="outside", textinfo="label+percent")
+        fig.update_traces(textinfo="label+percent", marker=dict(line=dict(color=PANEL, width=3)))
         plot(fig, 330)
 
-# ===== Operations =====
-with tab_operations:
+# =====================================================================
+#  OPERATIONS
+# =====================================================================
+elif page == P_OPS:
     left, right = st.columns(2)
     with left:
-        if has(filtered, "Ship Mode", "Sales"):
-            agg = {"Sales": ("Sales", "sum")}
-            if "Shipping Days" in filtered:
-                agg["Avg days"] = ("Shipping Days", "mean")
+        if has(filtered, "Ship Mode"):
+            agg = {"Sales": ("Sales", "sum")} | ({"Avg days": ("Shipping Days", "mean")} if "Shipping Days" in filtered else {})
             ship = filtered.groupby("Ship Mode", as_index=False).agg(**agg)
             fig = px.bar(ship.sort_values("Sales"), x="Sales", y="Ship Mode", orientation="h", title="Which shipping modes carry the most sales?",
-                         color="Avg days" if "Avg days" in ship else "Sales", color_continuous_scale=["#45E0C1", "#FFB86B", "#FF718B"]
-                         if "Avg days" in ship else ["#6D9EFF", "#45E0C1"])
+                         color="Avg days" if "Avg days" in ship else "Sales",
+                         color_continuous_scale=[GREEN_LT, AMBER, RED] if "Avg days" in ship else [GREEN_XLT, GREEN_DK])
             plot(fig, 360)
             if "Avg days" in ship:
                 st.caption("Bar color shows the average shipping time (days) for each mode.")
-        else:
-            st.info("Requires Ship Mode and Sales.")
     with right:
         if "Shipping Days" in filtered:
             sd = filtered["Shipping Days"].dropna()
@@ -615,34 +687,33 @@ with tab_operations:
             sd = sd[sd >= 0]
             if not sd.empty:
                 hist = sd.value_counts().sort_index().rename_axis("Shipping Days").reset_index(name="Order lines")
-                plot(px.bar(hist, x="Shipping Days", y="Order lines", title="How long does shipping take?", color_discrete_sequence=[PURPLE]), 360)
-                st.caption(f"Median shipping time: {sd.median():.1f} days." + (f" {neg:,} rows with negative durations were excluded (check date format)." if neg else ""))
-        else:
-            st.info("Requires Order Date and Ship Date.")
-
-    if has(filtered, "Discount Band", "Sales", "Profit"):
+                plot(px.bar(hist, x="Shipping Days", y="Order lines", title="How long does shipping take?", color_discrete_sequence=[GREEN_MID]), 360)
+                st.caption(f"Median shipping time: {sd.median():.1f} days." + (f" {neg:,} rows with negative durations were excluded." if neg else ""))
+    if has(filtered, "Ship Mode", "Order ID") and "Shipping Days" in filtered:
+        sm = filtered.groupby("Ship Mode").agg(Orders=("Order ID", "nunique"), Sales=("Sales", "sum"),
+                                              **{"Avg days": ("Shipping Days", "mean")}).reset_index()
+        table(sm.style.format({"Orders": "{:,.0f}", "Sales": "${:,.0f}", "Avg days": "{:.2f}"}))
+    if has_profit and has(filtered, "Discount Band"):
         db = filtered.groupby("Discount Band", observed=True).agg(
             Lines=("Profit", "size"), Sales=("Sales", "sum"), Profit=("Profit", "sum"),
-            Avg_Profit=("Profit", "mean"), Loss_Share=("Profit", lambda s: (s < 0).mean() * 100)).reset_index()
-        db["Margin %"] = np.where(db["Sales"] != 0, db["Profit"] / db["Sales"] * 100, np.nan)
+            Loss_Share=("Profit", lambda s: (s < 0).mean() * 100)).reset_index()
         fig = go.Figure()
         fig.add_trace(go.Bar(x=db["Discount Band"].astype(str), y=db["Profit"], name="Total profit",
-                             marker_color=[TEAL if v >= 0 else RED for v in db["Profit"]]))
+                             marker_color=[GREEN_MID if v >= 0 else RED for v in db["Profit"]]))
         fig.add_trace(go.Scatter(x=db["Discount Band"].astype(str), y=db["Loss_Share"], name="% of lines losing money",
-                                 mode="lines+markers", line=dict(color=ORANGE, width=3), yaxis="y2"))
+                                 mode="lines+markers", line=dict(color=AMBER, width=3), yaxis="y2"))
         fig.update_layout(title="Discount bands: total profit vs. share of loss-making lines",
-                          yaxis=dict(title="Total profit"),
                           yaxis2=dict(title="% loss-making lines", overlaying="y", side="right", showgrid=False, range=[0, 105]),
                           legend=dict(orientation="h", y=1.12, x=0))
         plot(fig, 400)
         st.caption("Diagnostic, not a recommendation to remove discounts. Check product, segment and region mix before acting.")
-        table(db.rename(columns={"Avg_Profit": "Avg profit / line", "Loss_Share": "Loss-making lines %"}).style.format(
-            {"Lines": "{:,.0f}", "Sales": "${:,.0f}", "Profit": "${:,.0f}", "Avg profit / line": "${:,.2f}",
-             "Loss-making lines %": "{:.1f}%", "Margin %": "{:.1f}%"}))
+    elif "Discount" not in filtered:
+        st.info("Discount and profit analysis needs `Discount` and `Profit` columns, which this dataset doesn't include.")
 
-# ===== Forecast =====
-with tab_forecast:
-    st.markdown("#### Sales forecast")
+# =====================================================================
+#  FORECAST
+# =====================================================================
+elif page == P_FC:
     st.caption("Holt-Winters model on monthly sales. It respects the Region / Category / Segment filters but always uses the full date history.")
     try:
         import statsmodels  # noqa: F401
@@ -668,16 +739,14 @@ with tab_forecast:
         k2.metric("vs last same-length period", f"{growth:+.1f}%" if pd.notna(growth) else "—")
         k3.metric("Expected peak month", f"{point.idxmax():%b %Y}")
         k4.metric("80% range (total)", f"{money(lo.sum())} – {money(hi.sum())}")
-
         fig = go.Figure()
-        fig.add_trace(go.Scatter(x=hist.index, y=hist.values, name="History", mode="lines", line=dict(color=TEAL, width=2.5)))
+        fig.add_trace(go.Scatter(x=hist.index, y=hist.values, name="History", mode="lines", line=dict(color=GREEN, width=2.8)))
         fig.add_trace(go.Scatter(x=list(point.index) + list(point.index[::-1]), y=list(hi) + list(lo[::-1]), fill="toself",
-                                 fillcolor="rgba(255,184,107,0.18)", line=dict(width=0), name="80% range", hoverinfo="skip"))
+                                 fillcolor="rgba(232,163,61,0.20)", line=dict(width=0), name="80% range", hoverinfo="skip"))
         fig.add_trace(go.Scatter(x=[hist.index[-1]] + list(point.index), y=[hist.values[-1]] + list(point.values), name="Forecast",
-                                 mode="lines+markers", line=dict(color=ORANGE, width=2.5, dash="dash")))
+                                 mode="lines+markers", line=dict(color=AMBER, width=2.8, dash="dash")))
         fig.update_layout(title="Monthly sales: history and forecast", legend=dict(orientation="h", y=1.12, x=0))
         plot(fig, 400)
-
         out_tbl = pd.DataFrame({"Month": point.index.strftime("%b %Y"), "Forecast": point.values.round(0),
                                 "Low (10%)": lo.round(0), "High (90%)": hi.round(0)})
         left, right = st.columns([1, 1.4])
@@ -690,27 +759,26 @@ with tab_forecast:
             if bt:
                 b1, b2 = st.columns(2)
                 b1.metric("Holdout error · Holt-Winters", f"{bt['wape_hw']:.1f}%")
-                b2.metric("Holdout error · seasonal naive", f"{bt['wape_sn']:.1f}%",
-                          help="Baseline: same month last year. The model should beat it.")
+                b2.metric("Holdout error · seasonal naive", f"{bt['wape_sn']:.1f}%", help="Baseline: same month last year. The model should beat it.")
                 fig = go.Figure()
                 fig.add_trace(go.Scatter(x=bt["test"].index, y=bt["test"].values, name="Actual", line=dict(color=TEXT, width=2.5)))
-                fig.add_trace(go.Scatter(x=bt["test"].index, y=bt["hw"], name="Holt-Winters", line=dict(color=ORANGE)))
-                fig.add_trace(go.Scatter(x=bt["test"].index, y=bt["snaive"], name="Seasonal naive", line=dict(color=BLUE, dash="dot")))
+                fig.add_trace(go.Scatter(x=bt["test"].index, y=bt["hw"], name="Holt-Winters", line=dict(color=AMBER)))
+                fig.add_trace(go.Scatter(x=bt["test"].index, y=bt["snaive"], name="Seasonal naive", line=dict(color=GREEN_MID, dash="dot")))
                 fig.update_layout(title="How accurate was it on the last 12 months?", legend=dict(orientation="h", y=1.15, x=0))
                 plot(fig, 300)
         st.caption("Error = weighted absolute % error on the last 12 known months (model trained on earlier data only). "
                    "Expect roughly 15–25% on this dataset: use the forecast for direction and seasonality, not exact monthly targets. "
                    "The trend term extrapolates recent growth, so treat the upper range as a best case.")
 
-# ===== Data quality =====
-with tab_data:
-    st.markdown("#### Dataset health")
+# =====================================================================
+#  DATA QUALITY
+# =====================================================================
+else:
     q1, q2, q3, q4 = st.columns(4)
     q1.metric("Rows", f"{len(df):,}")
     q2.metric("Columns", f"{len(df.columns):,}")
     q3.metric("Exact duplicate rows", f"{df.duplicated().sum():,}")
     q4.metric("Missing cells", f"{int(df.isna().sum().sum()):,}")
-
     checks = []
     if "Row ID" in df:
         checks.append(("Duplicate Row ID values", int(df["Row ID"].duplicated().sum())))
@@ -726,27 +794,21 @@ with tab_data:
     chk = pd.DataFrame(checks, columns=["Check", "Rows affected"])
     chk["Status"] = np.where(chk["Rows affected"] == 0, "✅ OK", "⚠️ Review")
     table(chk)
-
     miss = df.isna().sum().rename("Missing values").to_frame()
     miss["Missing %"] = (df.isna().mean() * 100).round(2)
     miss = miss[miss["Missing values"] > 0].sort_values("Missing values", ascending=False)
     if not miss.empty:
         fig = px.bar(miss.reset_index(names="Column").head(20), x="Missing values", y="Column", orientation="h",
-                     title="Which columns need data-quality attention?", color="Missing %",
-                     color_continuous_scale=["#45E0C1", "#FFB86B", "#FF718B"])
+                     title="Which columns need data-quality attention?", color="Missing %", color_continuous_scale=[GREEN_LT, AMBER, RED])
         plot(fig, max(320, min(600, 30 * len(miss.head(20)))))
     else:
         st.success("No missing values detected in the loaded dataset.")
-
     st.markdown("#### Preview filtered records")
     st.dataframe(filtered.head(500), hide_index=True, **STRETCH)
     st.download_button("Download filtered data as CSV", data=filtered.to_csv(index=False).encode("utf-8-sig"),
                        file_name="superstore_filtered.csv", mime="text/csv")
 
 st.markdown("---")
-st.markdown(
-    f'<div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;color:{MUTED};font-size:11px">'
-    '<span>✦ InsightLab · Analytical learning workspace</span>'
-    f'<span>{len(filtered):,} rows in current view · {len(df.columns)} fields detected</span></div>',
-    unsafe_allow_html=True,
-)
+st.markdown(f'<div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;color:{MUTED};font-size:11px">'
+            f'<span>◍ InsightLab · Analytical learning workspace</span>'
+            f'<span>{len(filtered):,} rows in current view · {len(df.columns)} fields</span></div>', unsafe_allow_html=True)
