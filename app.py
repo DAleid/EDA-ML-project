@@ -185,13 +185,25 @@ def plotly_defaults(fig, height=390):
         margin=dict(l=10, r=10, t=50, b=10),
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
-        font=dict(family="Inter, Arial, sans-serif", color="#314055"),
+        font=dict(family="Inter, Arial, sans-serif", color="#172033", size=13),
+        title_font=dict(color="#172033", size=16),
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0),
         hoverlabel=dict(bgcolor="white"),
     )
-    fig.update_xaxes(showgrid=True, gridcolor="#edf0f4", zeroline=False)
-    fig.update_yaxes(showgrid=False, zeroline=False)
+    fig.update_xaxes(showgrid=True, gridcolor="#dfe5ec", zeroline=False, color="#172033", tickfont=dict(color="#172033", size=12), title_font=dict(color="#172033", size=13))
+    fig.update_yaxes(showgrid=False, zeroline=False, color="#172033", tickfont=dict(color="#172033", size=12), title_font=dict(color="#172033", size=13))
     return fig
+
+
+def short_ai_label(value):
+    replacements = {
+        "Yes, I use AI tools daily": "Daily",
+        "Yes, I use AI tools weekly": "Weekly",
+        "Yes, I use AI tools monthly or infrequently": "Monthly / infrequent",
+        "No, and I don't plan to": "No · no plans",
+        "No, but I plan to soon": "No · plan soon",
+    }
+    return replacements.get(str(value), str(value))
 
 
 try:
@@ -267,18 +279,22 @@ with tabs[0]:
     st.markdown('<div class="section-copy">Start here for the main signal. The sample is large, but the questions describe developers’ own views of their work.</div>', unsafe_allow_html=True)
     c1, c2 = st.columns([1.15, .85])
     with c1:
-        counts = filtered["AISelect"].fillna("Missing").value_counts().rename_axis("AI use frequency").reset_index(name="Respondents")
-        fig = px.bar(counts.sort_values("Respondents"), x="Respondents", y="AI use frequency", orientation="h", color="Respondents", color_continuous_scale=["#bfe9e1", "#0f766e"])
+        counts = filtered["AISelect"].fillna("Missing").map(short_ai_label).value_counts().rename_axis("AI use frequency").reset_index(name="Respondents")
+        counts = counts.sort_values("Respondents")
+        fig = px.bar(counts, x="Respondents", y="AI use frequency", orientation="h", text="Respondents", color_discrete_sequence=["#147d73"])
+        fig.update_traces(textposition="outside", textfont=dict(color="#172033", size=12))
         fig.update_coloraxes(showscale=False)
-        st.plotly_chart(plotly_defaults(fig, 410), use_container_width=True)
+        fig.update_layout(title="How often do developers use AI?", xaxis_title="Respondents", yaxis_title=None)
+        st.plotly_chart(plotly_defaults(fig, 430), use_container_width=True)
         st.caption("Counts show how often visible respondents say they use AI in their development process.")
     with c2:
         positive = filtered[filtered["Perceived_Productivity_Positive"].notna()].copy()
         positive["Outcome"] = np.where(positive["Perceived_Productivity_Positive"].eq(1), "Positive perception", "Not positive")
         outcome = positive["Outcome"].value_counts().rename_axis("Outcome").reset_index(name="Respondents")
-        fig = px.pie(outcome, values="Respondents", names="Outcome", hole=.64, color="Outcome", color_discrete_map={"Positive perception":"#0f766e", "Not positive":"#cbd5e1"})
-        fig.update_traces(textposition="inside", textinfo="percent")
-        st.plotly_chart(plotly_defaults(fig, 410), use_container_width=True)
+        fig = px.pie(outcome, values="Respondents", names="Outcome", hole=.64, color="Outcome", color_discrete_map={"Positive perception":"#147d73", "Not positive":"#aebdce"})
+        fig.update_traces(textposition="inside", textinfo="percent", textfont=dict(color="white", size=14))
+        fig.update_layout(title="Perceived productivity impact")
+        st.plotly_chart(plotly_defaults(fig, 430), use_container_width=True)
         st.caption(f"Eligible base: {len(positive):,} visible respondents with a productivity-impact response.")
     st.markdown('<div class="insight"><b>What stands out:</b> daily AI use is common in this developer sample, while perceived productivity is best read alongside trust, sentiment, and the limitations of self-reporting.</div>', unsafe_allow_html=True)
     st.subheader("Respondent composition")
@@ -302,10 +318,12 @@ with tabs[1]:
     st.markdown('<div class="section-copy">Explore adoption, agents, sentiment, trust, and the practical parts of development work where respondents use AI.</div>', unsafe_allow_html=True)
     left, right = st.columns(2)
     with left:
-        ai = filtered["AISelect"].fillna("Missing").value_counts().rename_axis("Frequency").reset_index(name="Respondents")
+        ai = filtered["AISelect"].fillna("Missing").map(short_ai_label).value_counts().rename_axis("Frequency").reset_index(name="Respondents")
         ai["Share"] = ai["Respondents"] / ai["Respondents"].sum()
-        fig = px.bar(ai.sort_values("Respondents"), x="Respondents", y="Frequency", orientation="h", text=ai.sort_values("Respondents")["Share"].map(lambda x: f"{x:.0%}"), color_discrete_sequence=["#0f766e"])
+        ai = ai.sort_values("Respondents")
+        fig = px.bar(ai, x="Respondents", y="Frequency", orientation="h", text=ai["Share"].map(lambda x: f"{x:.0%}"), color_discrete_sequence=["#147d73"])
         fig.update_traces(textposition="outside")
+        fig.update_layout(title="AI use frequency · share of visible sample", yaxis_title=None)
         st.plotly_chart(plotly_defaults(fig), use_container_width=True)
         st.caption("Percent labels are shares of the filtered response base, including visible missing responses.")
     with right:
