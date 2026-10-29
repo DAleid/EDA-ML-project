@@ -97,6 +97,34 @@ div[data-testid="stPlotlyChart"] { background:#fff; border:1px solid __LINE__; b
 div[data-testid="stMetric"] { background:#fff; border:1px solid __LINE__; padding:14px 16px; border-radius:18px; }
 div[data-testid="stDataFrame"] { border:1px solid __LINE__; border-radius:16px; overflow:hidden; }
 hr { border-color: __LINE__; }
+
+/* top navigation (works even when the sidebar is collapsed) */
+.st-key-topnav div[role="radiogroup"] { gap: 8px; flex-wrap: wrap; }
+.st-key-topnav div[role="radiogroup"] label { background:#fff; border:1px solid __LINE__; border-radius:999px; padding:7px 16px; cursor:pointer; }
+.st-key-topnav div[role="radiogroup"] label > div:first-child { display:none; }
+.st-key-topnav div[role="radiogroup"] label p { font-size:13.5px; font-weight:600; color:#5F6B64; margin:0; }
+.st-key-topnav div[role="radiogroup"] label:has(input:checked) { background:__GREEN__; border-color:__GREEN__; }
+.st-key-topnav div[role="radiogroup"] label:has(input:checked) p { color:#fff; }
+
+/* keep every widget readable and light, even if the browser/system is in dark mode */
+.stApp h1, .stApp h2, .stApp h3, .stApp h4, .stApp [data-testid="stWidgetLabel"] p { color: __TEXT__; }
+[data-testid="stCaptionContainer"], [data-testid="stCaptionContainer"] p { color: __MUTED__ !important; }
+[data-testid="stMetricLabel"] p { color: __MUTED__ !important; }
+[data-testid="stMetricValue"], [data-testid="stMetricValue"] div { color: __TEXT__ !important; }
+[data-testid="stPopoverBody"] { background:#fff !important; border:1px solid __LINE__; border-radius:18px; }
+[data-testid="stPopoverBody"] p, [data-testid="stPopoverBody"] label, [data-testid="stPopoverBody"] span, [data-testid="stPopoverBody"] small { color: __TEXT__ !important; }
+[data-testid="stPopoverBody"] div[data-baseweb="input"], [data-testid="stPopoverBody"] div[data-baseweb="select"] > div,
+[data-testid="stPopoverBody"] div[data-baseweb="base-input"] { background:#F4F7F4 !important; border-color:__LINE__ !important; }
+[data-testid="stPopoverBody"] input { color:__TEXT__ !important; -webkit-text-fill-color:__TEXT__ !important; }
+[data-testid="stFileUploaderDropzone"] { background:#F4F7F4 !important; border:1px dashed #B9C6BE !important; }
+[data-testid="stPopoverBody"] button { background:#fff !important; border:1.5px solid __GREEN__ !important; border-radius:999px !important; }
+[data-testid="stPopoverBody"] button p, [data-testid="stPopoverBody"] button span { color:__GREEN__ !important; }
+span[data-baseweb="tag"] { background:__XLT__ !important; border-radius:8px !important; }
+span[data-baseweb="tag"] span, span[data-baseweb="tag"] svg { color:__GREEN_DK__ !important; fill:__GREEN_DK__ !important; }
+div[data-baseweb="popover"] ul[role="listbox"], div[data-baseweb="popover"] ul[role="listbox"] li { background:#fff !important; color:__TEXT__ !important; }
+div[data-baseweb="popover"] ul[role="listbox"] li:hover { background:__XLT__ !important; }
+div[data-baseweb="calendar"] { background:#fff !important; color:__TEXT__ !important; }
+div[data-baseweb="calendar"] div { color:__TEXT__; }
 </style>
 """
 for k, v in {"__BG__": BG, "__TEXT__": TEXT, "__MUTED__": MUTED, "__LINE__": LINE, "__GREEN__": GREEN, "__GREEN_DK__": GREEN_DK,
@@ -139,7 +167,7 @@ def has(df, *cols):
 
 def plot(fig, height=350):
     fig.update_layout(**PLOT_LAYOUT, height=height)
-    st.plotly_chart(fig, **STRETCH)
+    st.plotly_chart(fig, theme=None, **STRETCH)
 
 
 def table(data):
@@ -271,10 +299,23 @@ TITLES = {P_DASH: ("Dashboard", "Track sales momentum, seasonality and the signa
           P_FC: ("Forecast", "What do the next months look like, and how reliable is the model?"),
           P_DATA: ("Data quality", "Check the dataset health and download the filtered records.")}
 
+PAGES = [P_DASH, P_PROD, P_CUST, P_OPS, P_FC, P_DATA]
+
+
+def _side_changed():
+    st.session_state["nav_top"] = st.session_state["page"]
+
+
+def _top_changed():
+    st.session_state["page"] = st.session_state["nav_top"]
+
+
 with st.sidebar:
     st.markdown('<div class="brand"><span class="logo"></span>InsightLab</div>', unsafe_allow_html=True)
     st.markdown('<div class="nav-label">MENU</div>', unsafe_allow_html=True)
-    page = st.radio("Navigation", [P_DASH, P_PROD, P_CUST, P_OPS, P_FC, P_DATA], label_visibility="collapsed", key="page")
+    st.session_state.setdefault("page", P_DASH)
+    st.session_state.setdefault("nav_top", st.session_state["page"])
+    page = st.radio("Navigation", PAGES, label_visibility="collapsed", key="page", on_change=_side_changed)
     info_slot = st.container()
 
 # ---------- Header ----------
@@ -289,6 +330,16 @@ with head_i:
             st.caption("Expected fields include Sales, Order Date, Category, Region and Segment. "
                        "If no file is uploaded, `Superstore_Cleaned.csv` next to app.py is used. "
                        "The notebook saves the cleaned data and the forecast together in this one file.")
+
+with st.container(key="topnav"):
+    st.radio("Go to", PAGES, key="nav_top", horizontal=True, label_visibility="collapsed", on_change=_top_changed)
+try:
+    if st.context.theme.type == "dark":
+        st.warning("الواجهة مصمّمة للثيم الفاتح، وجهازك على الوضع الداكن فقد تظهر بعض العناصر (مثل الجداول) بألوان غير متناسقة. "
+                   "للإصلاح: ضع مجلد `.streamlit` (فيه ملف `config.toml`) بجانب `app.py` وأعد تشغيل التطبيق، "
+                   "أو من القائمة ⋮ ← Settings ← Theme ← Light.")
+except Exception:
+    pass
 
 raw = load_raw(uploaded)
 fc_rows = None
