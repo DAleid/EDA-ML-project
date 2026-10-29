@@ -261,29 +261,6 @@ def delta_html(cur, prev):
     return f'<span class="chip {cls}">{arrow} {diff / abs(prev) * 100:+.1f}%</span>vs previous period'
 
 
-@st.cache_data(show_spinner="Fitting forecast model…")
-def run_forecast(series, horizon):
-    from statsmodels.tsa.holtwinters import ExponentialSmoothing
-
-    def fit(s):
-        return ExponentialSmoothing(s, trend="add", seasonal="add", seasonal_periods=12,
-                                    initialization_method="estimated").fit()
-
-    out = {}
-    if len(series) >= 36:
-        tr, te = series[:-12], series[-12:]
-        hw, sn = fit(tr).forecast(12).values, tr[-12:].values
-        wape = lambda p: float(np.abs(te.values - p).sum() / te.values.sum() * 100)
-        out["backtest"] = dict(test=te, hw=hw, snaive=sn, wape_hw=wape(hw), wape_sn=wape(sn))
-    model = fit(series)
-    idx = pd.date_range(series.index[-1] + pd.offsets.MonthBegin(1), periods=horizon, freq="MS")
-    sims = model.simulate(horizon, repetitions=1000, error="add", random_state=42)
-    out.update(point=pd.Series(model.forecast(horizon).values, index=idx),
-               lower=np.maximum(sims.quantile(0.10, axis=1).values, 0),
-               upper=sims.quantile(0.90, axis=1).values)
-    return out
-
-
 # ---------- Navigation ----------
 P_DASH, P_PROD, P_CUST = "◧  Dashboard", "▦  Products", "◎  Customers"
 P_OPS, P_FC, P_DATA = "↗  Operations", "◔  Forecast", "⌘  Data quality"
@@ -310,9 +287,23 @@ with head_i:
         with popover("⬆ Import data"):
             uploaded = st.file_uploader("Upload Superstore data (CSV or Excel)", type=["csv", "xlsx", "xls"])
             st.caption("Expected fields include Sales, Order Date, Category, Region and Segment. "
-                       "If no file is uploaded, `Superstore_Cleaned.csv` next to app.py is used.")
+                       "If no file is uploaded, `Superstore_Cleaned.csv` next to app.py is used. "
+                       "The notebook saves the cleaned data and the forecast together in this one file.")
 
 raw = load_raw(uploaded)
+fc_rows = None
+if raw is not None and "Record Type" in raw.columns:
+    # The notebook saves transactions and forecast rows in one file: separate them here.
+    # Parse dates on the whole file first: the date format is detected from the order rows (day > 12),
+    # so forecast months (always the 1st) are read correctly even if Excel re-saved the file as dd/mm/yyyy.
+    if "Order Date" in raw.columns:
+        raw = raw.assign(**{"Order Date": smart_to_datetime(raw["Order Date"])})
+    is_fc = raw["Record Type"].astype(str).str.strip().str.lower().eq("forecast")
+    fc_rows = raw[is_fc].copy() if is_fc.any() else None
+    raw = raw[~is_fc].drop(columns=[c for c in ["Record Type", "Period", "Forecast", "Reference", "Low", "High"] if c in raw.columns])
+    raw = raw.reset_index(drop=True)
+    if "Row ID" in raw and raw["Row ID"].notna().all() and (raw["Row ID"] % 1 == 0).all():
+        raw["Row ID"] = raw["Row ID"].astype("int64")
 if raw is None:
     st.markdown("""
     <div class="hero"><div class="eyebrow">DATA INTELLIGENCE / LEARNING STUDIO</div><h1>InsightLab</h1>
@@ -714,61 +705,74 @@ elif page == P_OPS:
 #  FORECAST
 # =====================================================================
 elif page == P_FC:
-    st.caption("Holt-Winters model on monthly sales. It respects the Region / Category / Segment filters but always uses the full date history.")
-    try:
-        import statsmodels  # noqa: F401
-        has_sm = True
-    except ImportError:
-        has_sm = False
-    hist = None
-    if has_sm and "Order Date" in base and base["Order Date"].notna().any():
-        hist = base.dropna(subset=["Order Date"]).set_index("Order Date")["Sales"].resample("MS").sum()
-        hist.index.freq = "MS"
-    if not has_sm:
-        st.info("Install `statsmodels` to enable forecasting:  `pip install statsmodels`")
-    elif hist is None or len(hist) < 30:
-        st.info("Forecasting needs at least ~30 months of order history for the selected Region / Category / Segment.")
+    fcm = None
+    if fc_rows is not None:
+        fcm = fc_rows.assign(Month=pd.to_datetime(fc_rows["Order Date"], errors="coerce"))
+        for c in ["Forecast", "Reference", "Low", "High"]:
+            fcm[c] = pd.to_numeric(fcm[c], errors="coerce") if c in fcm else np.nan
+        fcm["Period"] = fcm["Period"].astype(str).str.strip().str.title() if "Period" in fcm else ""
+        fcm = fcm.dropna(subset=["Month"]).sort_values("Month")
+    if fcm is None or fcm[fcm["Period"] == "Future"].empty:
+        st.info("هذا الملف لا يحتوي على صفوف تنبؤ. شغّل القسم 17 في الـ Notebook؛ فهو يكتب `Superstore_Cleaned.csv` "
+                "(البيانات النظيفة + التنبؤ في ملف واحد). ضعه بجانب `app.py` أو ارفعه من زر Import data.")
     else:
-        horizon = st.slider("Months to forecast", 3, 12, 12)
-        fc = run_forecast(hist, horizon)
-        point, lo, hi = fc["point"], fc["lower"], fc["upper"]
-        last_same = hist[-horizon:].sum()
-        growth = (point.sum() / last_same - 1) * 100 if last_same else np.nan
+        actual = df.dropna(subset=["Order Date"]).set_index("Order Date")["Sales"].resample("MS").sum() if has_dates else pd.Series(dtype=float)
+        test = fcm[(fcm["Period"] == "Test") & fcm["Forecast"].notna()].copy()
+        test["Actual"] = actual.reindex(test["Month"]).values
+        test = test.dropna(subset=["Actual"])
+        fut = fcm[fcm["Period"] == "Future"].reset_index(drop=True)
+        st.caption("Gradient Boosting forecast saved by the notebook in the same file as the cleaned data. It covers **all** regions, "
+                   "categories and segments, so the filters above do not change it.")
+        if chips:
+            st.info("الفلاتر الحالية لا تؤثر على هذه الصفحة: التنبؤ المحفوظ يغطي كل المناطق والفئات والشرائح.")
+        if has_dates and not test.empty and test["Month"].max().to_period("M") != df["Order Date"].max().to_period("M"):
+            st.warning(f"التنبؤ المحفوظ مبني على بيانات حتى {test['Month'].max():%b %Y} بينما بياناتك تنتهي عند "
+                       f"{df['Order Date'].max():%b %Y}. أعد تشغيل القسم 17 لتحديثه.")
+        horizon = len(fut)
+        if len(fut) > 3:
+            horizon = st.slider("Months to show", 3, len(fut), len(fut))
+        f = fut.head(horizon)
+        last_same = actual.reindex(f["Month"] - pd.DateOffset(months=12)).sum()   # same calendar months, one year earlier
+        growth = (f["Forecast"].sum() / last_same - 1) * 100 if last_same else np.nan
         k1, k2, k3, k4 = st.columns(4)
-        k1.metric(f"Forecast sales · next {horizon} mo", money(point.sum()))
-        k2.metric("vs last same-length period", f"{growth:+.1f}%" if pd.notna(growth) else "—")
-        k3.metric("Expected peak month", f"{point.idxmax():%b %Y}")
-        k4.metric("80% range (total)", f"{money(lo.sum())} – {money(hi.sum())}")
+        k1.metric(f"Forecast sales · next {horizon} mo", money(f["Forecast"].sum()))
+        k2.metric("vs same months last year", f"{growth:+.1f}%" if pd.notna(growth) and last_same else "—")
+        k3.metric("Expected peak month", f"{f.loc[f['Forecast'].idxmax(), 'Month']:%b %Y}")
+        k4.metric("80% range (total)", f"{money(f['Low'].sum())} – {money(f['High'].sum())}" if f["Low"].notna().all() else "—")
+
         fig = go.Figure()
-        fig.add_trace(go.Scatter(x=hist.index, y=hist.values, name="History", mode="lines", line=dict(color=GREEN, width=2.8)))
-        fig.add_trace(go.Scatter(x=list(point.index) + list(point.index[::-1]), y=list(hi) + list(lo[::-1]), fill="toself",
-                                 fillcolor="rgba(232,163,61,0.20)", line=dict(width=0), name="80% range", hoverinfo="skip"))
-        fig.add_trace(go.Scatter(x=[hist.index[-1]] + list(point.index), y=[hist.values[-1]] + list(point.values), name="Forecast",
+        fig.add_trace(go.Scatter(x=actual.index, y=actual.values, name="History", mode="lines", line=dict(color=GREEN, width=2.8)))
+        if f["Low"].notna().all() and f["High"].notna().all():
+            fig.add_trace(go.Scatter(x=list(f["Month"]) + list(f["Month"][::-1]), y=list(f["High"]) + list(f["Low"][::-1]), fill="toself",
+                                     fillcolor="rgba(232,163,61,0.20)", line=dict(width=0), name="80% range", hoverinfo="skip"))
+        fig.add_trace(go.Scatter(x=[actual.index[-1]] + list(f["Month"]), y=[actual.values[-1]] + list(f["Forecast"]), name="Forecast",
                                  mode="lines+markers", line=dict(color=AMBER, width=2.8, dash="dash")))
         fig.update_layout(title="Monthly sales: history and forecast", legend=dict(orientation="h", y=1.12, x=0))
         plot(fig, 400)
-        out_tbl = pd.DataFrame({"Month": point.index.strftime("%b %Y"), "Forecast": point.values.round(0),
-                                "Low (10%)": lo.round(0), "High (90%)": hi.round(0)})
+
+        out_tbl = pd.DataFrame({"Month": f["Month"].dt.strftime("%b %Y"), "Forecast": f["Forecast"].round(0),
+                                "Low (10%)": f["Low"].round(0), "High (90%)": f["High"].round(0)})
         left, right = st.columns([1, 1.4])
         with left:
             table(out_tbl.style.format({"Forecast": "${:,.0f}", "Low (10%)": "${:,.0f}", "High (90%)": "${:,.0f}"}))
             st.download_button("Download forecast as CSV", out_tbl.to_csv(index=False).encode("utf-8-sig"),
                                file_name="sales_forecast.csv", mime="text/csv")
         with right:
-            bt = fc.get("backtest")
-            if bt:
+            if not test.empty:
+                wape = lambda p: float(np.abs(test["Actual"] - p).sum() / test["Actual"].sum() * 100)
                 b1, b2 = st.columns(2)
-                b1.metric("Holdout error · Holt-Winters", f"{bt['wape_hw']:.1f}%")
-                b2.metric("Holdout error · seasonal naive", f"{bt['wape_sn']:.1f}%", help="Baseline: same month last year. The model should beat it.")
+                b1.metric("Holdout error · Gradient Boosting", f"{wape(test['Forecast']):.1f}%")
+                if test["Reference"].notna().all():
+                    b2.metric("Reference · same month last year", f"{wape(test['Reference']):.1f}%", help="A no-model baseline. The model should beat it.")
                 fig = go.Figure()
-                fig.add_trace(go.Scatter(x=bt["test"].index, y=bt["test"].values, name="Actual", line=dict(color=TEXT, width=2.5)))
-                fig.add_trace(go.Scatter(x=bt["test"].index, y=bt["hw"], name="Holt-Winters", line=dict(color=AMBER)))
-                fig.add_trace(go.Scatter(x=bt["test"].index, y=bt["snaive"], name="Seasonal naive", line=dict(color=GREEN_MID, dash="dot")))
+                fig.add_trace(go.Scatter(x=test["Month"], y=test["Actual"], name="Actual", line=dict(color=TEXT, width=2.5)))
+                fig.add_trace(go.Scatter(x=test["Month"], y=test["Forecast"], name="Gradient Boosting", line=dict(color=AMBER)))
+                if test["Reference"].notna().all():
+                    fig.add_trace(go.Scatter(x=test["Month"], y=test["Reference"], name="Same month last year", line=dict(color=GREEN_MID, dash="dot")))
                 fig.update_layout(title="How accurate was it on the last 12 months?", legend=dict(orientation="h", y=1.15, x=0))
                 plot(fig, 300)
         st.caption("Error = weighted absolute % error on the last 12 known months (model trained on earlier data only). "
-                   "Expect roughly 15–25% on this dataset: use the forecast for direction and seasonality, not exact monthly targets. "
-                   "The trend term extrapolates recent growth, so treat the upper range as a best case.")
+                   "The 80% range is built from the model's own past errors, so it is wide on purpose.")
 
 # =====================================================================
 #  DATA QUALITY
